@@ -10,7 +10,7 @@ allow {
 	count(violations) == 0
 }
 
-violation[msg] {
+violations[msg] {
 	input.estimate.total_monthly_cost.p90 > budget_limit
 	msg := sprintf("Total P90 monthly cost $%.2f exceeds budget of $%.2f", [input.estimate.total_monthly_cost.p90, budget_limit])
 }
