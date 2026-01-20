@@ -1,0 +1,2389 @@
+Combined Code Export - 01/20/2026 02:05:44
+
+
+================================================================================
+FILE: combine_files.ps1
+================================================================================
+
+$outFile = "combined-code.txt"
+$root = Get-Location
+$extensions = @(".go", ".mod", ".rego", ".md", ".yml", ".yaml", ".ps1", ".work")
+
+# Initialize output file
+Set-Content -Path $outFile -Value "Combined Code Export - $(Get-Date)`n"
+
+# Get all files recursively
+Get-ChildItem -Path $root -Recurse -File | Where-Object { 
+    $ext = $_.Extension
+    # Include specific extensions
+    ($extensions -contains $ext) -or ($_.Name -eq "Dockerfile")
+} | Where-Object {
+    # Exclude the output file itself and git directory
+    $_.Name -ne $outFile -and $_.FullName -notmatch "\\.git\\"
+} | ForEach-Object {
+    $relativePath = $_.FullName.Substring($root.Path.Length + 1)
+    
+    Write-Host "Processing: $relativePath"
+    
+    Add-Content -Path $outFile -Value "`n================================================================================"
+    Add-Content -Path $outFile -Value "FILE: $relativePath"
+    Add-Content -Path $outFile -Value "================================================================================`n"
+    
+    Try {
+        $content = Get-Content -Path $_.FullName -Raw -ErrorAction Stop
+        Add-Content -Path $outFile -Value $content
+    } Catch {
+        Add-Content -Path $outFile -Value "[Error reading file: $($_.Exception.Message)]"
+    }
+}
+
+Write-Host "`nSuccessfully created $outFile"
+
+
+================================================================================
+FILE: docker-compose.yml
+================================================================================
+
+version: '3.9'
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    ports:
+      - "8123:8123" # HTTP port
+      - "9000:9000" # Native client port
+    environment:
+      - CLICKHOUSE_DB=iac_pricing
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=password
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.0-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  opa:
+    image: openpolicyagent/opa:latest
+    ports:
+      - "8181:8181"
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+    healthcheck:
+        test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8181/health"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+
+volumes:
+  clickhouse_data:
+
+
+================================================================================
+FILE: go.work
+================================================================================
+
+go 1.25.5
+
+use (
+	./estimation-core
+	./fiac-cli
+	./ingestion-service
+	./pkg/api
+	./pkg/focus
+	./pkg/graph
+	./pkg/platform
+	./pkg/policy
+	./policy-engine
+	./pricing-engine
+	./semantic-engine
+	./usage-engine
+)
+
+
+================================================================================
+FILE: README.md
+================================================================================
+
+# Futuristic IaC - Cost Intelligence Platform
+
+This platform provides Shift-Left Financial Governance for cloud infrastructure.
+
+## Architecture
+
+- **Ingestion Service** (:8081): Parses Terraform Plans.
+- **Semantic Engine** (:8082): Maps resources to billable intents (Cost & Variance aware).
+- **Usage Engine** (:8083): Predicts usage (P50/P90) based on heuristics.
+- **Pricing Engine** (:8084): FOCUS-compliant pricing lookup (Time Travel capable).
+- **Estimation Core** (:8085): Orchestrates cost DAG calculation.
+- **Policy Engine** (:8086): Enforces OPA policies.
+
+## How to Run
+
+### Prerequisites
+- Go 1.23+
+- Docker & Docker Compose
+- Terraform
+
+### 1. Start Infrastructure
+```powershell
+docker-compose up -d
+```
+
+### 2. Start Microservices
+(Run in separate terminals or use the helper script)
+```powershell
+./run_services.ps1
+```
+
+### 3. Run Analysis
+1. Generate a Terraform plan JSON:
+   ```bash
+   terraform init
+   terraform plan -out=tfplan
+   terraform show -json tfplan > tfplan.json
+   ```
+2. Run the CLI:
+   ```powershell
+   cd fiac-cli
+   go run main.go --plan ../tfplan.json
+   ```
+
+
+================================================================================
+FILE: run_services.ps1
+================================================================================
+
+# Start all microservices in background jobs
+Write-Host "Starting Services..."
+
+Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "ingestion-service/main.go"
+Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "semantic-engine/main.go"
+Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "usage-engine/main.go"
+Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "pricing-engine/main.go"
+Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "estimation-core/main.go"
+Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "policy-engine/main.go"
+
+Write-Host "Services started! Waiting for health checks..."
+Start-Sleep -Seconds 5
+Write-Host "Ready to run CLI."
+
+
+================================================================================
+FILE: budget-service\main.go
+================================================================================
+
+package main
+
+import (
+	"encoding/json"
+	"log"
+	"net/http"
+)
+
+func main() {
+	http.HandleFunc("/budget", handleGetBudget)
+
+	port := ":8087"
+	log.Printf("Budget API (Mock) starting on %s", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
+}
+
+type BudgetResponse struct {
+	TotalBudget float64  `json:"total_budget"`
+	Currency    string   `json:"currency"`
+	Tags        []string `json:"tags"`
+}
+
+func handleGetBudget(w http.ResponseWriter, r *http.Request) {
+	// Mock: Always return $1200 for now.
+	// In reality, this would query a DB based on Project ID.
+	resp := BudgetResponse{
+		TotalBudget: 1200.0,
+		Currency:    "USD",
+		Tags:        []string{"prod", "aws"},
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+
+================================================================================
+FILE: estimation-core\go.mod
+================================================================================
+
+module github.com/futuristic-iac/estimation-core
+
+go 1.25.5
+
+
+================================================================================
+FILE: estimation-core\main.go
+================================================================================
+
+package main
+
+import (
+	"encoding/json"
+	"io"
+	"log"
+	"net/http"
+
+	"github.com/futuristic-iac/estimation-core/service"
+	"github.com/futuristic-iac/pkg/api"
+	"github.com/futuristic-iac/pkg/platform"
+)
+
+func main() {
+	// Initialize Shared Platform Components
+	logger := platform.InitLogger()
+	
+	usageURL := platform.GetEnv("USAGE_URL", "http://localhost:8083/forecast")
+	pricingURL := platform.GetEnv("PRICING_URL", "http://localhost:8084/price")
+	
+	estimator := service.NewEstimator(usageURL, pricingURL)
+
+	http.HandleFunc("/estimate", platform.BasicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read body", http.StatusInternalServerError)
+			return
+		}
+		defer r.Body.Close()
+
+		var components []api.BillingComponent
+		if err := json.Unmarshal(body, &components); err != nil {
+			http.Error(w, "Invalid input JSON", http.StatusBadRequest)
+			return
+		}
+
+		result, err := estimator.Estimate(components)
+		if err != nil {
+			logger.Error("Estimation failed", "error", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	}))
+
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	port := platform.GetEnv("PORT", ":8085")
+	logger.Info("Estimation Core starting", "port", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		platform.LogFatal(logger, "Server failed", err)
+	}
+}
+
+
+================================================================================
+FILE: estimation-core\service\estimator.go
+================================================================================
+
+package service
+
+import (
+	"encoding/json"
+	"fmt"
+	"bytes"
+	"net/http"
+	"time"
+
+	"github.com/futuristic-iac/pkg/api"
+	"github.com/futuristic-iac/pkg/focus"
+	"github.com/futuristic-iac/pkg/platform"
+)
+
+// Estimator orchestrates the pricing and usage data to form a Cost DAG.
+type Estimator struct {
+	UsageURL   string
+	PricingURL string
+	Client     *platform.HTTPClient
+}
+
+func NewEstimator(usageURL, pricingURL string) *Estimator {
+	return &Estimator{
+		UsageURL:   usageURL,
+		PricingURL: pricingURL,
+		Client:     platform.NewHTTPClient(3, 2*time.Second), // 3 retries, 2s timeout
+	}
+}
+
+func (e *Estimator) Estimate(components []api.BillingComponent) (*api.EstimationResult, error) {
+	result := &api.EstimationResult{
+		TotalMonthlyCost: struct {
+			P50 float64 `json:"p50"`
+			P90 float64 `json:"p90"`
+		}{0, 0},
+		Carbon: struct {
+			KgCO2e          float64 `json:"kgco2e"`
+			RegionIntensity string  `json:"region_intensity"`
+		}{0, "medium"},
+		Drivers:        []api.CostDriver{},
+		DetailedErrors: []api.EstimationError{},
+		Errors:         []string{}, // Backward comp
+	}
+
+	globalConfidence := 1.0
+	isIncomplete := false
+
+	// --- STAGE 1: Resolution & Data Gathering ---
+	type ResolvedComponent struct {
+		Component api.BillingComponent
+		Forecast  *api.UsageForecast
+		Price     *focus.PricingItem
+	}
+	
+	resolved := []ResolvedComponent{}
+
+	for _, comp := range components {
+		rc := ResolvedComponent{Component: comp}
+
+		// 0. Check Semantic Mapping vs Policy
+		if comp.MappingError != "" {
+			err := api.EstimationError{
+				Component: comp.ResourceAddress,
+				Severity:  api.SeverityCritical, // Semantic failure is critical
+				Message:   fmt.Sprintf("Mapping Failed: %s", comp.MappingError),
+			}
+			result.DetailedErrors = append(result.DetailedErrors, err)
+			result.Errors = append(result.Errors, err.Message)
+			isIncomplete = true
+			globalConfidence *= 0.0 // Invalidates confidence
+			continue
+		}
+
+		// 1. Usage Resolution
+		forecast, err := e.getUsageForecast(comp)
+		if err != nil {
+			estErr := api.EstimationError{
+				Component: comp.ResourceAddress,
+				Severity:  api.SeverityCritical,
+				Message:   fmt.Sprintf("Usage Forecast Failed: %v", err),
+			}
+			result.DetailedErrors = append(result.DetailedErrors, estErr)
+			result.Errors = append(result.Errors, estErr.Message)
+			isIncomplete = true
+			globalConfidence *= 0.5
+			continue
+		}
+		rc.Forecast = forecast
+		globalConfidence *= forecast.Confidence
+
+		// 2. Pricing Resolution
+		price, err := e.getPrice(comp)
+		if err != nil {
+			var sev string = api.SeverityCritical
+			// If Component says "usage_type: free_tier" maybe warning? 
+			// For now, treat missing price as critical.
+			
+			estErr := api.EstimationError{
+				Component: comp.ResourceAddress,
+				Severity:  sev,
+				Message:   fmt.Sprintf("Pricing Lookup Failed: %v", err),
+			}
+			result.DetailedErrors = append(result.DetailedErrors, estErr)
+			result.Errors = append(result.Errors, estErr.Message)
+			
+			// Add 0-cost driver so it appears in list
+			result.Drivers = append(result.Drivers, api.CostDriver{
+				Component: comp.ResourceAddress,
+				Reason:    "Price Missing",
+				P50Cost:   0, P90Cost: 0,
+			})
+			
+			isIncomplete = true
+			globalConfidence *= 0.5 // Heavy penalty
+			continue
+		}
+		rc.Price = price
+		
+		resolved = append(resolved, rc)
+	}
+
+	// --- STAGE 2: Cost Calculation ---
+	for _, rc := range resolved {
+		comp := rc.Component
+		forecast := rc.Forecast
+		price := rc.Price
+
+		units := forecast.MonthlyForecast.P50
+		unitLabel := "units"
+
+		// Unit Normalization Logic
+		if price.Unit == "GB-Mo" {
+			sizeStr, ok := comp.LookupAttributes["size_gb"]
+			if !ok {
+				estErr := api.EstimationError{
+					Component: comp.ResourceAddress,
+					Severity:  api.SeverityCritical,
+					Message:   "GB-Mo price requires size_gb attribute",
+				}
+				result.DetailedErrors = append(result.DetailedErrors, estErr)
+				result.Errors = append(result.Errors, estErr.Message)
+				isIncomplete = true
+				continue
+			}
+			var size float64
+			fmt.Sscanf(sizeStr, "%f", &size)
+			months := forecast.MonthlyForecast.P50 / 730.0
+			units = size * months
+			unitLabel = fmt.Sprintf("GB-Mo (%.1f GB * %.1f Mo)", size, months)
+		} else if price.Unit == "Hrs" || price.Unit == "Hrs" {
+			unitLabel = "Hrs"
+		}
+
+		p50Cost := price.PricePerUnit * units
+		p90Cost := price.PricePerUnit * (units * (forecast.MonthlyForecast.P90 / forecast.MonthlyForecast.P50))
+
+		driver := api.CostDriver{
+			Component: comp.ResourceAddress,
+			Reason:    fmt.Sprintf("%s (%s)", comp.UsageType, price.SkuID),
+			P50Cost:   p50Cost,
+			P90Cost:   p90Cost,
+			Formula:   fmt.Sprintf("%.2f %s * $%.4f", units, unitLabel, price.PricePerUnit),
+		}
+
+		result.Drivers = append(result.Drivers, driver)
+		result.TotalMonthlyCost.P50 += p50Cost
+		result.TotalMonthlyCost.P90 += p90Cost
+		
+		// Carbon
+		carbon := price.CarbonIntensity * forecast.MonthlyForecast.P50 // gCO2e
+		result.Carbon.KgCO2e += carbon / 1000.0
+	}
+	
+	result.IsIncomplete = isIncomplete
+	result.ConfidenceScore = globalConfidence
+	
+	result.IsIncomplete = isIncomplete
+	result.ConfidenceScore = globalConfidence
+	
+	// CRITICAL CHECK: If any critical error exists, Confidence = 0.0
+	for _, e := range result.DetailedErrors {
+		if e.Severity == api.SeverityCritical {
+			result.ConfidenceScore = 0.0
+			break
+		}
+	}
+
+	// Fail-Closed Aggregation: If incomplete, totals must be 0 to prevent downstream misuse.
+	if result.IsIncomplete {
+		result.TotalMonthlyCost.P50 = 0
+		result.TotalMonthlyCost.P90 = 0
+		result.Carbon.KgCO2e = 0
+	}
+
+	return result, nil
+}
+
+func (e *Estimator) getUsageForecast(comp api.BillingComponent) (*api.UsageForecast, error) {
+	req := api.UsageForecastRequest{
+		Component: comp,
+	}
+	body, _ := json.Marshal(req)
+	
+	resp, err := e.Client.PostJSON(e.UsageURL, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("usage service error: %d", resp.StatusCode)
+	}
+	
+	var f api.UsageForecast
+	if err := json.NewDecoder(resp.Body).Decode(&f); err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
+func (e *Estimator) getPrice(comp api.BillingComponent) (*focus.PricingItem, error) {
+	req := struct {
+		Provider   string            `json:"provider"`
+		Attributes map[string]string `json:"attributes"`
+		Timestamp  string            `json:"timestamp"`
+	}{
+		Provider:   comp.Provider,
+		Attributes: comp.LookupAttributes,
+		Timestamp:  time.Now().Format(time.RFC3339),
+	}
+	
+	body, _ := json.Marshal(req)
+	resp, err := e.Client.PostJSON(e.PricingURL, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("pricing service error: %d", resp.StatusCode)
+	}
+	
+	var p focus.PricingItem
+	if err := json.NewDecoder(resp.Body).Decode(&p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+
+================================================================================
+FILE: fiac-cli\go.mod
+================================================================================
+
+module github.com/futuristic-iac/fiac-cli
+
+go 1.25.5
+
+
+================================================================================
+FILE: fiac-cli\main.go
+================================================================================
+
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+
+	"github.com/futuristic-iac/pkg/api"
+	"github.com/futuristic-iac/pkg/graph"
+)
+
+// Config holds service URLs
+type Config struct {
+	IngestionURL  string
+	SemanticURL   string
+	EstimationURL string
+	PolicyURL     string
+}
+
+// Defaults for local docker/dev
+var cfg = Config{
+	IngestionURL:  "http://localhost:8081/ingest",
+	SemanticURL:   "http://localhost:8082/semantify",
+	EstimationURL: "http://localhost:8085/estimate",
+	PolicyURL:     "http://localhost:8086/evaluate",
+}
+
+func main() {
+	planPath := flag.String("plan", "tfplan.json", "Path to terraform plan JSON")
+	outputFormat := flag.String("output", "text", "Output format (text, json)")
+	flag.Parse()
+
+	// 1. Read Plan
+	planJSON, err := os.ReadFile(*planPath)
+	if err != nil {
+		log.Fatalf("Failed to read plan file: %v", err)
+	}
+
+	// 2. Ingest
+	fmt.Println("Analyzing infrastructure...")
+	g, err := callIngestion(planJSON)
+	if err != nil {
+		log.Fatalf("Ingestion failed: %v", err)
+	}
+
+	// 3. Semantify
+	fmt.Println("Mapping to billing components...")
+	comps, err := callSemantic(g)
+	if err != nil {
+		log.Fatalf("Semantic mapping failed: %v", err)
+	}
+
+	// 4. Estimate
+	fmt.Println("Predicting usage and estimating cost...")
+	est, err := callEstimation(comps)
+	if err != nil {
+		log.Fatalf("Estimation failed: %v", err)
+	}
+
+	// 5. Policy Check
+	fmt.Println("Verifying governance policies...")
+	pRes, err := callPolicy(est)
+	if err != nil {
+		log.Fatalf("Policy check failed: %v", err)
+	}
+
+	// 6. Output
+	if *outputFormat == "json" {
+		out := struct {
+			Estimate *api.EstimationResult `json:"estimate"`
+			Policy   *api.PolicyResult     `json:"policy"`
+		}{est, pRes}
+		je := json.NewEncoder(os.Stdout)
+		je.SetIndent("", "  ")
+		je.Encode(out)
+	} else {
+		printTextReport(est, pRes)
+	}
+	
+	if !pRes.Allowed {
+		os.Exit(1)
+	}
+}
+
+func callIngestion(plan []byte) (*graph.InfrastructureGraph, error) {
+	resp, err := http.Post(cfg.IngestionURL, "application/json", bytes.NewBuffer(plan))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status %d", resp.StatusCode)
+	}
+	var g graph.InfrastructureGraph
+	if err := json.NewDecoder(resp.Body).Decode(&g); err != nil {
+		return nil, err
+	}
+	return &g, nil
+}
+
+func callSemantic(g *graph.InfrastructureGraph) ([]api.BillingComponent, error) {
+	body, _ := json.Marshal(g)
+	resp, err := http.Post(cfg.SemanticURL, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status %d", resp.StatusCode)
+	}
+	var comps []api.BillingComponent
+	if err := json.NewDecoder(resp.Body).Decode(&comps); err != nil {
+		return nil, err
+	}
+	return comps, nil
+}
+
+func callEstimation(comps []api.BillingComponent) (*api.EstimationResult, error) {
+	body, _ := json.Marshal(comps)
+	resp, err := http.Post(cfg.EstimationURL, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, string(b))
+	}
+	var est api.EstimationResult
+	if err := json.NewDecoder(resp.Body).Decode(&est); err != nil {
+		return nil, err
+	}
+	return &est, nil
+}
+
+func callPolicy(est *api.EstimationResult) (*api.PolicyResult, error) {
+	body, _ := json.Marshal(est)
+	resp, err := http.Post(cfg.PolicyURL, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status %d", resp.StatusCode)
+	}
+	var res api.PolicyResult
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func printTextReport(est *api.EstimationResult, p *api.PolicyResult) {
+	fmt.Println("\n--- Cost Intelligence Report ---")
+	fmt.Printf("Status:                   %s\n", getStatus(est))
+	fmt.Printf("Confidence Score:         %.2f%%\n", est.ConfidenceScore*100)
+	fmt.Printf("Total Monthly Cost (P50): $%.2f\n", est.TotalMonthlyCost.P50)
+	fmt.Printf("Total Monthly Cost (P90): $%.2f\n", est.TotalMonthlyCost.P90)
+	fmt.Printf("Carbon Footprint:         %.2f kgCO2e\n", est.Carbon.KgCO2e)
+	
+	if len(est.Errors) > 0 {
+		fmt.Println("\n CRITICAL ERRORS:")
+		for _, e := range est.Errors {
+			fmt.Printf("  ! %s\n", e)
+		}
+	} else {
+		fmt.Println("\n Drivers:")
+		for _, d := range est.Drivers {
+			fmt.Printf(" - %s: $%.2f (P90) [%s]\n", d.Component, d.P90Cost, d.Reason)
+		}
+	}
+
+	fmt.Println("\n--- Governance ---")
+	if p.Allowed {
+		fmt.Println("✅ Plan Allowed")
+	} else {
+		fmt.Println("❌ Plan Rejected")
+		for _, v := range p.Violations {
+			fmt.Printf("  - VIOLATION: %s\n", v)
+		}
+	}
+	for _, w := range p.Warnings {
+		fmt.Printf("  - WARNING: %s\n", w)
+	}
+}
+
+func getStatus(est *api.EstimationResult) string {
+	if est.IsIncomplete {
+		return "⚠️ INCOMPLETE"
+	}
+	if est.ConfidenceScore < 0.8 {
+		return "⚠️ LOW CONFIDENCE"
+	}
+	return "✅ OK"
+}
+
+
+================================================================================
+FILE: infra\prometheus.yml
+================================================================================
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'fiac_services'
+    static_configs:
+      - targets: ['host.docker.internal:8080'] # Placeholder for service metrics
+
+
+================================================================================
+FILE: ingestion-service\go.mod
+================================================================================
+
+module github.com/futuristic-iac/ingestion-service
+
+go 1.25.5
+
+
+================================================================================
+FILE: ingestion-service\main.go
+================================================================================
+
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+
+	"github.com/futuristic-iac/ingestion-service/parser"
+)
+
+func main() {
+	http.HandleFunc("/ingest", handleIngest)
+	http.HandleFunc("/health", handleHealth)
+
+	port := ":8081"
+	log.Printf("IaC Ingestion Service starting on %s", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+func handleIngest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	g, err := parser.Parse(body)
+	if err != nil {
+		log.Printf("Parse error: %v", err)
+		http.Error(w, fmt.Sprintf("Parse error: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(g); err != nil {
+		log.Printf("Encode error: %v", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+
+================================================================================
+FILE: ingestion-service\parser\parser.go
+================================================================================
+
+package parser
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/futuristic-iac/pkg/graph"
+)
+
+// Parse converts a Terraform Plan JSON into a normalized InfrastructureGraph.
+func Parse(planJSON []byte) (*graph.InfrastructureGraph, error) {
+	var plan TFPlan
+	if err := json.Unmarshal(planJSON, &plan); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal plan: %w", err)
+	}
+
+	g := &graph.InfrastructureGraph{
+		Resources: []graph.Resource{},
+	}
+
+	// Index Configuration Dependencies
+	// Map[ResourceAddress] -> []DependsOnAddresses
+	dependencies := make(map[string][]string)
+	if plan.FollowsConfig() {
+		for _, res := range plan.Config.RootModule.Resources {
+			// address usually matches, but config address might differ slightly from plan address (module prefixes)
+			// For MVP, assuming match.
+			if len(res.DependsOn) > 0 {
+				dependencies[res.Address] = res.DependsOn
+			}
+		}
+	}
+
+	// Iterate over resource changes to build the graph nodes
+	for _, rc := range plan.ResourceChanges {
+		if rc.Change.Actions[0] == "delete" {
+			continue // Start with ignoring deletes for MVP
+		}
+
+		// Handle "attributes" being nil in some cases (e.g. unknown)
+		attrs, ok := rc.Change.After.(map[string]interface{})
+		if !ok {
+			attrs = make(map[string]interface{})
+		}
+
+		res := graph.Resource{
+			Address:      rc.Address,
+			Type:         rc.Type,
+			Name:         rc.Name,
+			Provider:     rc.ProviderName,
+			Attributes:   attrs,
+			Dependencies: []string{},
+		}
+		
+		// Attach dependencies if found in config
+		if deps, found := dependencies[rc.Address]; found {
+			res.Dependencies = deps
+		}
+		
+		g.Resources = append(g.Resources, res)
+	}
+
+	return g, nil
+}
+
+
+================================================================================
+FILE: ingestion-service\parser\tfjson.go
+================================================================================
+
+package parser
+
+import "encoding/json"
+
+// TFPlan represents the top-level structure of `terraform show -json`
+type TFPlan struct {
+	FormatVersion    string           `json:"format_version"`
+	TerraformVersion string           `json:"terraform_version"`
+	ResourceChanges  []ResourceChange `json:"resource_changes"`
+	Config           *PlanConfig      `json:"configuration"`
+}
+
+func (p TFPlan) FollowsConfig() bool {
+	return p.Config != nil && p.Config.RootModule != nil
+}
+
+type PlanConfig struct {
+	RootModule *ConfModule `json:"root_module"`
+}
+
+type ConfModule struct {
+	Resources []ConfResource `json:"resources"`
+}
+
+type ConfResource struct {
+	Address   string   `json:"address"`
+	Name      string   `json:"name"`
+	DependsOn []string `json:"depends_on,omitempty"`
+}
+
+type ResourceChange struct {
+	Address      string `json:"address"`
+	Type         string `json:"type"`
+	Name         string `json:"name"`
+	ProviderName string `json:"provider_name"`
+	Change       Change `json:"change"`
+}
+
+type Change struct {
+	Actions []string    `json:"actions"`
+	After   interface{} `json:"after"`
+}
+
+
+================================================================================
+FILE: pkg\api\contracts.go
+================================================================================
+
+package api
+
+import (
+	"github.com/futuristic-iac/pkg/focus"
+)
+
+// BillingComponent represents an atomic billable unit derived from a Resource.
+// It encodes financial intent and variance.
+type BillingComponent struct {
+	ResourceAddress string   `json:"resource_address"`
+	ComponentType   string   `json:"component_type"` // compute, storage, network, license
+	Provider        string   `json:"provider"`
+	UsageType       string   `json:"usage_type"`       // on_demand, spot, reserved
+	Lifecycle       string   `json:"lifecycle"`        // persistent, ephemeral
+	VarianceProfile string   `json:"variance_profile"` // static, autoscaled, request_driven
+	Dependencies    []string `json:"dependencies"`     // IDs of other BillingComponents
+	
+	// LookupAttributes are used by the Pricing Engine to find the matching SKU.
+	LookupAttributes map[string]string `json:"lookup_attributes"`
+
+	// Resolved Pricing (filled by Estimation Core)
+	PricingRef *focus.PricingItem `json:"pricing_ref,omitempty"`
+
+	// Mapping Metadata
+	MappingError string `json:"mapping_error,omitempty"` // If mapping failed/incomplete
+}
+
+// UsageForecastRequest is the input to the Usage Engine.
+type UsageForecastRequest struct {
+	ResourceID   string `json:"resource_id"`
+	Class        string `json:"class"` // api, batch, stateful
+	Environment  string `json:"env"`   // prod, dev, staging
+	ResourceShape string `json:"shape"` // e.g. t3.medium
+}
+
+// UsageForecast represents the predicted usage for a specific component.
+type UsageForecast struct {
+	ResourceAddress string `json:"resource_address"`
+	Metric          string `json:"metric"` // e.g., "cpu_hours", "gb_months"
+	
+	MonthlyForecast struct {
+		P50 float64 `json:"p50"`
+		P90 float64 `json:"p90"`
+	} `json:"monthly_forecast"`
+
+	Confidence  float64  `json:"confidence"`
+	Assumptions []string `json:"assumptions"`
+}
+
+// EstimationResult represents the final cost and carbon output.
+type EstimationResult struct {
+	TotalMonthlyCost struct {
+		P50 float64 `json:"p50"`
+		P90 float64 `json:"p90"`
+	} `json:"total_monthly_cost"`
+
+	Carbon struct {
+		KgCO2e          float64 `json:"kgco2e"`
+		RegionIntensity string  `json:"region_intensity"` // low, medium, high
+	} `json:"carbon"`
+
+	Drivers []CostDriver `json:"drivers"`
+
+	// Safety & Correctness Fields
+	ConfidenceScore float64           `json:"confidence_score"` // 0.0 to 1.0
+	IsIncomplete    bool              `json:"is_incomplete"`    // True if any component failed usage/pricing/mapping
+	Errors          []string          `json:"errors"`           // Deprecated: simplistic list
+	DetailedErrors  []EstimationError `json:"detailed_errors"`  // Structured errors
+}
+
+// EstimationError provides detailed context on failures
+type EstimationError struct {
+	Component string `json:"component"`
+	Severity  string `json:"severity"` // critical | warning
+	Message   string `json:"message"`
+}
+
+const (
+	SeverityCritical = "critical"
+	SeverityWarning  = "warning"
+)
+
+// CostDriver explains a single line item contribution.
+type CostDriver struct {
+	Component string  `json:"component"` // e.g. "aws_instance.web.compute"
+	Reason    string  `json:"reason"`    // e.g. "on_demand_prod"
+	P50Cost   float64 `json:"p50_cost"`
+	P90Cost   float64 `json:"p90_cost"`
+	Formula   string  `json:"formula"`   // e.g. "730h * $0.05/h"
+}
+
+
+================================================================================
+FILE: pkg\api\go.mod
+================================================================================
+
+module github.com/futuristic-iac/pkg/api
+
+go 1.25.5
+
+
+================================================================================
+FILE: pkg\api\policy.go
+================================================================================
+
+package api
+
+// PolicyResult contains the governance decision.
+type PolicyResult struct {
+	Allowed    bool     `json:"allowed"`
+	Violations []string `json:"violations"`
+	Warnings   []string `json:"warnings"`
+}
+
+// PolicyRequest wraps the input for OPA.
+type PolicyRequest struct {
+	Input PolicyInput `json:"input"`
+}
+
+type PolicyInput struct {
+	Estimate *EstimationResult `json:"estimate"`
+	Budget   *BudgetInfo       `json:"budget"`
+}
+
+type BudgetInfo struct {
+	TotalBudget float64 `json:"total_budget"`
+}
+
+
+================================================================================
+FILE: pkg\focus\go.mod
+================================================================================
+
+module github.com/futuristic-iac/pkg/focus
+
+go 1.25.5
+
+
+================================================================================
+FILE: pkg\focus\schema.go
+================================================================================
+
+package focus
+
+import "time"
+
+// PricingItem represents a normalized pricing record following FOCUS-like semantics.
+type PricingItem struct {
+	SkuID           string                 `json:"sku_id"`
+	Provider        string                 `json:"provider"`         // AWS, GCP, Azure
+	Service         string                 `json:"service"`          // AmazonEC2
+	Family          string                 `json:"family,omitempty"` // Compute Instance
+	Region          string                 `json:"region"`
+	Unit            string                 `json:"unit"`
+	PricePerUnit    float64                `json:"price_per_unit"`
+	Currency        string                 `json:"currency"`
+	EffectiveDate   time.Time              `json:"effective_date"`
+	CarbonIntensity float64                `json:"carbon_intensity"` // gCO2e/unit
+	Attributes      map[string]interface{} `json:"attributes"`       // Searchable attributes
+
+	// Explanation Fields
+	MatchConfidence float64  `json:"match_confidence"` // 0.0 - 1.0
+	MatchedKeys     []string `json:"matched_keys"`
+	IgnoredKeys     []string `json:"ignored_keys"`
+}
+
+
+================================================================================
+FILE: pkg\graph\go.mod
+================================================================================
+
+module github.com/futuristic-iac/pkg/graph
+
+go 1.25.5
+
+
+================================================================================
+FILE: pkg\graph\graph.go
+================================================================================
+
+package graph
+
+// Resource represents a single node in the infrastructure graph.
+// It corresponds to a Terraform resource but with normalized attributes.
+type Resource struct {
+	Address      string                 `json:"address"`       // e.g., "aws_instance.web"
+	Type         string                 `json:"type"`          // e.g., "aws_instance"
+	Name         string                 `json:"name"`          // e.g., "web"
+	Provider     string                 `json:"provider"`      // e.g., "aws"
+	Region       string                 `json:"region"`        // e.g., "us-east-1"
+	Attributes   map[string]interface{} `json:"attributes"`    // Raw attributes from the plan
+	Dependencies []string               `json:"dependencies"`  // Addresses of dependencies
+}
+
+// InfrastructureGraph implies the Directed Acyclic Graph of resources.
+type InfrastructureGraph struct {
+	Resources []Resource `json:"resources"`
+	Root      string     `json:"root"` // Module root
+}
+
+
+================================================================================
+FILE: pkg\platform\auth.go
+================================================================================
+
+package platform
+
+import (
+	"crypto/subtle"
+	"net/http"
+)
+
+// BasicAuthMiddleware enforces Username/Password check from env vars.
+// Default: FAIL if not configured
+func BasicAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := GetEnv("AUTH_USER", "")
+		pass := GetEnv("AUTH_PASS", "")
+
+		if user == "" || pass == "" {
+			// Unsafe configuration - service should ideally not start, but middleware panicking is harsh.
+			// Return 503 or 500.
+			http.Error(w, "Service Authentication Not Configured", http.StatusServiceUnavailable)
+			return
+		}
+
+		u, p, ok := r.BasicAuth()
+		if !ok || subtle.ConstantTimeCompare([]byte(u), []byte(user)) != 1 || subtle.ConstantTimeCompare([]byte(p), []byte(pass)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// APIKeyMiddleware enforces X-API-Key header.
+func APIKeyMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		key := GetEnv("API_KEY", "")
+		if key == "" {
+			// If no key configured, skip auth (unsafe defaults logic should warn, but keeping compatible)
+			next(w, r)
+			return
+		}
+
+		if r.Header.Get("X-API-Key") != key {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
+}
+
+
+================================================================================
+FILE: pkg\platform\client.go
+================================================================================
+
+package platform
+
+import (
+	"bytes"
+	"context"
+	"io"
+	"net/http"
+	"time"
+	"log/slog"
+	"fmt"
+)
+
+type HTTPClient struct {
+	Client  *http.Client
+	Retries int
+	Timeout time.Duration
+	Logger  *slog.Logger
+}
+
+func NewHTTPClient(retries int, timeout time.Duration) *HTTPClient {
+	return &HTTPClient{
+		Client: &http.Client{
+			Timeout: timeout,
+		},
+		Retries: retries,
+		Timeout: timeout,
+		Logger:  slog.Default(),
+	}
+}
+
+func (c *HTTPClient) PostJSON(url string, body []byte) (*http.Response, error) {
+	var resp *http.Response
+	var err error
+
+	for i := 0; i <= c.Retries; i++ {
+		req, rErr := http.NewRequest("POST", url, bytes.NewBuffer(body))
+		if rErr != nil {
+			return nil, rErr
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err = c.Client.Do(req)
+		if err == nil && resp.StatusCode < 500 {
+			// Success or client error (do not retry 4xx usually, unless throttling)
+			return resp, nil
+		}
+
+		if i < c.Retries {
+			c.Logger.Warn("HTTP request failed, retrying", "url", url, "attempt", i+1, "error", err)
+			time.Sleep(time.Duration(1<<i) * 200 * time.Millisecond) // Exponential backoff
+		}
+	}
+	
+	if err != nil {
+		return nil, fmt.Errorf("request failed after %d retries: %w", c.Retries, err)
+	}
+	return resp, nil // return last response even if 500
+}
+
+
+================================================================================
+FILE: pkg\platform\config.go
+================================================================================
+
+package platform
+
+import (
+	"os"
+	"strconv"
+	"strings"
+)
+
+// Config helper to read env vars with defaults
+type ConfigLoader struct{}
+
+func GetEnv(key, defaultVal string) string {
+	if val, exists := os.LookupEnv(key); exists {
+		return val
+	}
+	return defaultVal
+}
+
+func GetEnvInt(key string, defaultVal int) int {
+	if val, exists := os.LookupEnv(key); exists {
+		if i, err := strconv.Atoi(val); err == nil {
+			return i
+		}
+	}
+	return defaultVal
+}
+
+func GetEnvBool(key string, defaultVal bool) bool {
+	if val, exists := os.LookupEnv(key); exists {
+		if strings.ToLower(val) == "true" || val == "1" {
+			return true
+		}
+		return false
+	}
+	return defaultVal
+}
+
+
+================================================================================
+FILE: pkg\platform\go.mod
+================================================================================
+
+module github.com/futuristic-iac/pkg/platform
+
+go 1.25.5
+
+
+================================================================================
+FILE: pkg\platform\logger.go
+================================================================================
+
+package platform
+
+import (
+	"log/slog"
+	"os"
+)
+
+func InitLogger() *slog.Logger {
+	// JSON handler for production logging
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+	return logger
+}
+
+func LogFatal(logger *slog.Logger, msg string, err error) {
+	logger.Error(msg, "error", err)
+	os.Exit(1)
+}
+
+
+================================================================================
+FILE: pkg\policy\go.mod
+================================================================================
+
+module github.com/futuristic-iac/pkg/policy
+
+go 1.25.5
+
+
+================================================================================
+FILE: pkg\util\units.go
+================================================================================
+
+package util
+
+import (
+	"fmt"
+	"strings"
+)
+
+// NormalizeUnitFactor returns the multiplier to convert 'usageUnits' into 'pricingUnits'.
+// Example: Usage="GB-Mpth", Price="GB-Mo" -> 1.0
+// Example: Usage="Hours", Price="Hrs" -> 1.0
+func NormalizeUnitFactor(usageUnit string, pricingUnit string) (float64, error) {
+	u := strings.ToLower(usageUnit)
+	p := strings.ToLower(pricingUnit)
+
+	// Direct match
+	if u == p {
+		return 1.0, nil
+	}
+
+	// Aliases
+	if (u == "hours" || u == "hr") && (p == "hours" || p == "hrs") {
+		return 1.0, nil
+	}
+	
+	// In the EC2 EBS example:
+	// Usage Forecast for storage is often just "Exists" (Hours)
+	// But Pricing is "GB-Mo".
+	// Semantic Engine passes "size_gb" in attributes.
+	// So the COST formula is: Size(GB) * Time(MonthFraction) * Price(Per-GB-Mo).
+	// This logic belongs in the Estimation Core, but we need a helper to detect unit mismatch.
+	
+	return 0.0, fmt.Errorf("incompatible units: usage=%s, pricing=%s", usageUnit, pricingUnit)
+}
+
+
+================================================================================
+FILE: policies\main.rego
+================================================================================
+
+package cost.governance
+
+default allow = false
+
+# External data passed in 'input.budget'
+budget_limit = input.budget.total_budget
+
+
+allow {
+	count(violations) == 0
+}
+
+violation[msg] {
+	input.estimate.total_monthly_cost.p90 > budget_limit
+	msg := sprintf("Total P90 monthly cost $%.2f exceeds budget of $%.2f", [input.estimate.total_monthly_cost.p90, budget_limit])
+}
+
+violations[msg] {
+	# Example: Carbon Intensity Check
+	# input.estimate.carbon.region_intensity == "high"
+	# msg := "Deployment in high carbon intensity region detected"
+	false
+}
+
+violations[msg] {
+	# Check for critical errors or incompleteness
+	input.estimate.is_incomplete == true
+	msg := sprintf("Estimation is incomplete due to missing data: %v", [input.estimate.errors])
+}
+
+violations[msg] {
+	# Confidence must be high enough for approval
+	input.estimate.confidence_score < 0.8
+	msg := sprintf("Estimation confidence too low (%.2f < 0.8) for approval", [input.estimate.confidence_score])
+}
+
+warnings[msg] {
+	input.estimate.total_monthly_cost.p90 > 800
+	msg := sprintf("Approaching budget limit: $%.2f > $800", [input.estimate.total_monthly_cost.p90])
+}
+
+
+================================================================================
+FILE: policy-engine\go.mod
+================================================================================
+
+module github.com/futuristic-iac/policy-engine
+
+go 1.25.5
+
+
+================================================================================
+FILE: policy-engine\main.go
+================================================================================
+
+package main
+
+import (
+	"encoding/json"
+	"io"
+	"log"
+	"net/http"
+
+	"github.com/futuristic-iac/pkg/api"
+	"github.com/futuristic-iac/policy-engine/service"
+)
+
+func main() {
+	evaluator := service.NewEvaluator("http://localhost:8181")
+
+	http.HandleFunc("/evaluate", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read body", http.StatusInternalServerError)
+			return
+		}
+		defer r.Body.Close()
+
+		var estimate api.EstimationResult
+		if err := json.Unmarshal(body, &estimate); err != nil {
+			http.Error(w, "Invalid input JSON", http.StatusBadRequest)
+			return
+		}
+
+		result, err := evaluator.Evaluate(&estimate)
+		if err != nil {
+			log.Printf("Evaluation error: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	})
+
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	port := ":8086"
+	log.Printf("Policy Engine starting on %s", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
+}
+
+
+================================================================================
+FILE: policy-engine\service\audit.go
+================================================================================
+
+package service
+
+import (
+	"encoding/json"
+	"os"
+	"time"
+
+	"github.com/futuristic-iac/pkg/api"
+)
+
+type AuditLogger struct {
+	LogFile string
+}
+
+type AuditEntry struct {
+	Timestamp      time.Time             `json:"timestamp"`
+	PolicyInput    *api.EstimationResult `json:"input"`
+	PolicyDecision *api.PolicyResult     `json:"decision"`
+	Allowed        bool                  `json:"allowed"`
+	Hash           string                `json:"hash"` // simulated content hash
+}
+
+func NewAuditLogger(file string) *AuditLogger {
+	return &AuditLogger{LogFile: file}
+}
+
+func (l *AuditLogger) Log(input *api.EstimationResult, decision *api.PolicyResult) error {
+	entry := AuditEntry{
+		Timestamp:      time.Now(),
+		PolicyInput:    input,
+		PolicyDecision: decision,
+		Allowed:        decision.Allowed,
+		Hash:           "simulated-hash-sha256", 
+	}
+	
+	f, err := os.OpenFile(l.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	
+	if err := json.NewEncoder(f).Encode(entry); err != nil {
+		return err
+	}
+	
+	return nil
+}
+
+
+================================================================================
+FILE: policy-engine\service\evaluator.go
+================================================================================
+
+package service
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+
+	"github.com/futuristic-iac/pkg/api"
+)
+
+type Evaluator struct {
+	OpaURL string
+	Auditor *AuditLogger
+}
+
+func NewEvaluator(opaURL string) *Evaluator {
+	return &Evaluator{
+		OpaURL: opaURL,
+		Auditor: NewAuditLogger("policy_audit.log"),
+	}
+}
+
+func (e *Evaluator) Evaluate(estimate *api.EstimationResult) (*api.PolicyResult, error) {
+	// 1. Fetch Budget (Mock: normally http.Get("http://budget-service..."))
+	budget := map[string]interface{}{
+		"total_budget": 1200.0,
+	}
+
+	req := map[string]interface{}{
+		"input": map[string]interface{}{
+			"estimate": estimate,
+			"budget":   budget,
+		},
+	}
+	// Note: We are using a map here because PolicyRequest struct in pkg/api might be shared/strict.
+	// Actually better to update pkg/api definitions if we want type safety. 
+	// But let's use the struct defined in pkg/api if I updated it correctly.
+	// I updated pkg/api/policy.go in the previous step? No, I tried to update it in THIS step but I can't target two files.
+	// I will update pkg/api/policy.go separately.
+	// Here I will assume pkg/api is updated.
+
+	body, _ := json.Marshal(req)
+	// Querying the 'cost/allow' rule
+	resp, err := http.Post(e.OpaURL+"/v1/data/cost/governance", "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("OPA status: %d", resp.StatusCode)
+	}
+
+	// OPA response format: { "result": { "allow": true, "violations": [...] } }
+	var opaResp struct {
+		Result struct {
+			Allow      bool     `json:"allow"`
+			Violations []string `json:"violations"`
+			Warnings   []string `json:"warnings"`
+		} `json:"result"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&opaResp); err != nil {
+		return nil, err
+	}
+
+	res := &api.PolicyResult{
+		Allowed:    opaResp.Result.Allow,
+		Violations: opaResp.Result.Violations,
+		Warnings:   opaResp.Result.Warnings,
+	}
+	
+	// Audit Log
+	if err := e.Auditor.Log(estimate, res); err != nil {
+		fmt.Printf("Audit log failed: %v\n", err)
+	}
+
+	return res, nil
+}
+
+
+================================================================================
+FILE: pricing-engine\go.mod
+================================================================================
+
+module github.com/futuristic-iac/pricing-engine
+
+go 1.25.5
+
+
+================================================================================
+FILE: pricing-engine\main.go
+================================================================================
+
+package main
+
+import (
+	"encoding/json"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/futuristic-iac/pkg/focus"
+	"github.com/futuristic-iac/pricing-engine/storage"
+)
+
+var store storage.PricingStore
+
+func main() {
+	// Initialize Store
+	store = storage.NewClickHouseStore()
+
+	// Seed some data? 
+	// In real life, correct ingestion runs separately.
+
+	http.HandleFunc("/price", handleGetPrice)
+	http.HandleFunc("/health", handleHealth)
+
+	port := ":8084"
+	log.Printf("Pricing Engine starting on %s", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+type PriceRequest struct {
+	Provider   string            `json:"provider"`
+	Attributes map[string]string `json:"attributes"`
+	Timestamp  time.Time         `json:"timestamp"`
+}
+
+func handleGetPrice(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req PriceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if req.Timestamp.IsZero() {
+		req.Timestamp = time.Now()
+	}
+
+	price, err := store.GetPrice(r.Context(), req.Provider, req.Attributes, req.Timestamp)
+	if err != nil {
+		// Differentiate between "Not Found" and "DB Error"
+		// For MVP, assuming non-nil error from GetPrice implies not found if it was a lookup issue.
+		// In production, check error type.
+		log.Printf("Price lookup failed for %v: %v", req.Attributes, err)
+		http.Error(w, fmt.Sprintf("Price not found: %v", err), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(price)
+}
+
+
+================================================================================
+FILE: pricing-engine\storage\clickhouse.go
+================================================================================
+
+package storage
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/futuristic-iac/pkg/focus"
+)
+
+package storage
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/futuristic-iac/pkg/focus"
+)
+
+// ClickHouseStore manages pricing data.
+// In a real build, we would import "github.com/ClickHouse/clickhouse-go/v2" 
+// and embed driver.Conn. For this stage, we simulate the SQL generation 
+// to ensure the architectural logic (Append-Only) is correct.
+type ClickHouseStore struct {
+	// Conn clickhouse.Conn 
+}
+
+func NewClickHouseStore() *ClickHouseStore {
+	return &ClickHouseStore{}
+}
+
+// Ingest generates the SQL for batch insertion.
+func (s *ClickHouseStore) Ingest(ctx context.Context, items []focus.PricingItem) error {
+	// Real implementation would use:
+	// batch, err := s.Conn.PrepareBatch(ctx, "INSERT INTO pricing")
+	// for _, item := range items { batch.Append(...) }
+	// return batch.Send()
+	
+	fmt.Printf("SQL [Simulated]: INSERT INTO pricing (sku_id, provider, effective_date, price, unit, attributes) VALUES (... %d items ...)\n", len(items))
+	return nil
+}
+
+// GetPrice executes the Time-Travel query.
+func (s *ClickHouseStore) GetPrice(ctx context.Context, provider string, attributes map[string]string, effectiveTime time.Time) (*focus.PricingItem, error) {
+	// 1. Build Attribute Filter (JSON based in ClickHouse)
+	// Clause: "attributes['instance_type'] = 't3.medium'"
+	// In ClickHouse: "visitParamExtractString(attributes, 'instance_type') = 't3.medium'"
+	// Or utilizing a Map column: "attributes['instance_type'] = 't3.medium'"
+	
+	whereParts := []string{"provider = ?"}
+	args := []interface{}{provider}
+	
+	// Query Explanation Metadata
+	matchReasons := []string{fmt.Sprintf("provider=%s", provider)}
+
+	for k, v := range attributes {
+		// sanitizing key for safety in demo
+		if isValidKey(k) {
+			whereParts = append(whereParts, fmt.Sprintf("attributes['%s'] = ?", k))
+			args = append(args, v)
+			matchReasons = append(matchReasons, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+	
+	// 2. Append-Only Logic:
+	// We want the LATEST record that is Effective BEFORE the requested time.
+	// SQL: ... AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1
+	whereParts = append(whereParts, "effective_date <= ?")
+	args = append(args, effectiveTime)
+	
+	query := fmt.Sprintf(`
+		SELECT sku_id, unit, price_per_unit, currency, carbon_intensity, effective_date 
+		FROM pricing 
+		WHERE %s 
+		ORDER BY effective_date DESC 
+		LIMIT 1
+	`, strings.Join(whereParts, " AND "))
+	
+	// fmt.Printf("SQL [Simulated]: %s | Args: %v\n", query, args)
+
+	// 3. Stub Response (Simulating DB Hit)
+	// In production, s.Conn.QueryRow(...)
+	
+	// Simulate finding "t3.medium" if attributes match
+	if val, ok := attributes["instance_type"]; ok && val == "t3.medium" {
+		return &focus.PricingItem{
+			SkuID:           "sku-t3-medium-us-east-1",
+			Provider:        provider,
+			PricePerUnit:    0.0416,
+			Unit:            "Hrs",
+			Currency:        "USD",
+			EffectiveDate:   effectiveTime.Add(-24 * time.Hour),         // Found a record from yesterday
+			CarbonIntensity: 18.5,
+			// New Metadata for Explainability
+			Attributes: attributes, // Return what matched
+		}, nil
+	}
+	
+	// Simulate finding "gp2"
+	if val, ok := attributes["volume_type"]; ok && val == "gp2" {
+		return &focus.PricingItem{
+			SkuID:           "sku-ebs-gp2-us-east-1",
+			Provider:        provider,
+			PricePerUnit:    0.10,
+			Unit:            "GB-Mo", // Different unit! Warning!
+			Currency:        "USD",
+			EffectiveDate:   effectiveTime.Add(-48 * time.Hour),
+			CarbonIntensity: 0.2, // low for static disk
+			Attributes:      attributes,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("no pricing record found matching criterias")
+}
+
+func isValidKey(k string) bool {
+	// prevent sql injection in column names for this simple builder
+	for _, c := range k {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '.') {
+			return false
+		}
+	}
+	return true
+}
+
+
+================================================================================
+FILE: pricing-engine\storage\interface.go
+================================================================================
+
+package storage
+
+import (
+	"context"
+	"time"
+
+	"github.com/futuristic-iac/pkg/focus"
+)
+
+type PricingStore interface {
+	// Ingest bulk inserts pricing items
+	Ingest(ctx context.Context, items []focus.PricingItem) error
+	
+	// GetPrice finds the best matching price for a SKU/Attributes at a specific time.
+	GetPrice(ctx context.Context, provider string, attributes map[string]string, effectiveTime time.Time) (*focus.PricingItem, error)
+}
+
+
+================================================================================
+FILE: semantic-engine\go.mod
+================================================================================
+
+module github.com/futuristic-iac/semantic-engine
+
+go 1.25.5
+
+
+================================================================================
+FILE: semantic-engine\main.go
+================================================================================
+
+package main
+
+import (
+	"encoding/json"
+	"io"
+	"log"
+	"net/http"
+
+	"github.com/futuristic-iac/semantic-engine/mapper"
+	// Register mappers
+	_ "github.com/futuristic-iac/semantic-engine/mapper/aws"
+	"github.com/futuristic-iac/pkg/graph"
+	"github.com/futuristic-iac/pkg/api"
+)
+
+func main() {
+	http.HandleFunc("/semantify", handleSemantify)
+	http.HandleFunc("/health", handleHealth)
+
+	port := ":8082"
+	log.Printf("Semantic Engine starting on %s", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+func handleSemantify(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	var g graph.InfrastructureGraph
+	if err := json.Unmarshal(body, &g); err != nil {
+		http.Error(w, "Invalid graph JSON", http.StatusBadRequest)
+		return
+	}
+
+	var allComponents []api.BillingComponent
+
+	for _, res := range g.Resources {
+		comps, err := mapper.MapResource(res)
+		if err != nil {
+			log.Printf("Mapping error for %s: %v", res.Address, err)
+			continue
+		}
+		if comps != nil {
+			allComponents = append(allComponents, comps...)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(allComponents); err != nil {
+		log.Printf("Encode error: %v", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+
+================================================================================
+FILE: semantic-engine\mapper\mapper.go
+================================================================================
+
+package mapper
+
+import (
+	"github.com/futuristic-iac/pkg/api"
+	"github.com/futuristic-iac/pkg/graph"
+)
+
+// ResourceMapper defines the contract for converting a provider resource into billing components.
+type ResourceMapper interface {
+	// Map transforms a single resource into billable components.
+	Map(resource graph.Resource) ([]api.BillingComponent, error)
+}
+
+
+================================================================================
+FILE: semantic-engine\mapper\registry.go
+================================================================================
+
+package mapper
+
+import (
+	"fmt"
+	"github.com/futuristic-iac/pkg/api"
+	"github.com/futuristic-iac/pkg/graph"
+)
+
+// Registry holds all registered resource mappers
+type Registry struct {
+	Mappers map[string]ResourceMapper
+}
+
+func NewRegistry() *Registry {
+	return &Registry{
+		Mappers: make(map[string]ResourceMapper),
+	}
+}
+
+func (r *Registry) Register(resourceType string, mapper ResourceMapper) {
+	r.Mappers[resourceType] = mapper
+}
+
+func (r *Registry) MapResource(res graph.Resource) ([]api.BillingComponent, error) {
+	mapper, exists := r.Mappers[res.Type]
+	if !exists {
+		// FAIL CLOSED: Do not ignore unknown resources.
+		// Returns a component that will trigger a Mapping Error in validation.
+		return []api.BillingComponent{{
+			ResourceAddress: res.Address,
+			Provider:        res.Provider,
+			UsageType:       "UNSUPPORTED_RESOURCE",
+			MappingError:    fmt.Sprintf("No mapper registered for resource type: %s", res.Type),
+		}}, nil
+	}
+
+	return mapper.Map(res)
+}
+
+
+================================================================================
+FILE: semantic-engine\mapper\aws\ec2.go
+================================================================================
+
+package aws
+
+import (
+	"fmt"
+	
+	"github.com/futuristic-iac/semantic-engine/mapper"
+	"github.com/futuristic-iac/pkg/api"
+	"github.com/futuristic-iac/pkg/graph"
+)
+
+func init() {
+	mapper.Register("aws_instance", &EC2Mapper{})
+}
+
+type EC2Mapper struct{}
+
+func (m *EC2Mapper) Map(res graph.Resource) ([]api.BillingComponent, error) {
+	components := []api.BillingComponent{}
+
+	// 1. Compute Component
+	instanceType, ok := res.Attributes["instance_type"].(string)
+	mappingErr := ""
+	if !ok || instanceType == "" {
+		// FAIL CLOSED: Do not guess "t2.micro". 
+		// Return a component but flag it as erroneous so the policy engine sees it.
+		instanceType = "UNKNOWN"
+		mappingErr = fmt.Sprintf("Missing required attribute 'instance_type' for %s", res.Address)
+	}
+	
+	lifecycle := "persistent" // default
+	// check if spot
+	if _, isSpot := res.Attributes["spot_price"]; isSpot {
+		lifecycle = "ephemeral"
+	}
+
+	compute := api.BillingComponent{
+		ResourceAddress: res.Address,
+		ComponentType:   "compute",
+		Provider:        "aws",
+		UsageType:       "on_demand", // default, policy can change to reserved
+		Lifecycle:       lifecycle,
+		VarianceProfile: "static", // usually always on unless autoscaled
+		Dependencies:    res.Dependencies,
+		LookupAttributes: map[string]string{
+			"instance_type": instanceType,
+			"family":        "Compute Instance", // placeholder logic
+			"usage_type":    "BoxUsage:" + instanceType, // simplified match key
+		},
+		MappingError: mappingErr,
+	}
+	
+	components = append(components, compute)
+
+	// 2. Storage (EBS)
+	// aws_instance config blocks for ebs are tricky in JSON. 
+	// They come as a list of maps in "ebs_block_device" or "root_block_device".
+	
+	if root, ok := res.Attributes["root_block_device"].([]interface{}); ok && len(root) > 0 {
+		r := root[0].(map[string]interface{})
+		volSize := 8.0 // default
+		if s, ok := r["volume_size"].(float64); ok {
+			volSize = s
+		}
+		
+		storage := api.BillingComponent{
+			ResourceAddress: res.Address + ".root_block_device",
+			ComponentType:   "storage",
+			Provider:        "aws",
+			UsageType:       "on_demand",
+			Lifecycle:       lifecycle,
+			VarianceProfile: "static",
+			LookupAttributes: map[string]string{
+				"volume_type": "gp2", // default
+				"size_gb":     fmt.Sprintf("%f", volSize),
+			},
+		}
+		components = append(components, storage)
+	}
+
+	return components, nil
+}
+
+
+================================================================================
+FILE: tests\policy_test_runner.go
+================================================================================
+
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+
+	"github.com/futuristic-iac/pkg/api"
+)
+
+// Policy Regression Suite
+// Tries to send various payloads to the Policy Engine and asserts the outcome.
+
+func main() {
+	fmt.Println("Running Policy Regression Tests...")
+	
+	tests := []struct {
+		Name          string
+		Estimate      api.EstimationResult
+		ExpectedAllow bool
+	}{
+		{
+			Name: "High Confidence, Low Cost -> ALLOW",
+			Estimate: api.EstimationResult{
+				TotalMonthlyCost: struct{ P50, P90 float64 `json:"p50";json:"p90"` }{500, 500},
+				ConfidenceScore: 0.95,
+				IsIncomplete:    false,
+			},
+			ExpectedAllow: true,
+		},
+		{
+			Name: "High Confidence, High Cost -> DENY",
+			Estimate: api.EstimationResult{
+				TotalMonthlyCost: struct{ P50, P90 float64 `json:"p50";json:"p90"` }{1500, 1500},
+				ConfidenceScore: 0.95,
+				IsIncomplete:    false,
+			},
+			ExpectedAllow: false,
+		},
+		{
+			Name: "Low Confidence -> DENY",
+			Estimate: api.EstimationResult{
+				TotalMonthlyCost: struct{ P50, P90 float64 `json:"p50";json:"p90"` }{100, 100},
+				ConfidenceScore: 0.5,
+				IsIncomplete:    false,
+			},
+			ExpectedAllow: false,
+		},
+		{
+			Name: "Incomplete -> DENY",
+			Estimate: api.EstimationResult{
+				TotalMonthlyCost: struct{ P50, P90 float64 `json:"p50";json:"p90"` }{100, 100},
+				ConfidenceScore: 1.0,
+				IsIncomplete:    true,
+				Errors:          []string{"Missing Price"},
+			},
+			ExpectedAllow: false,
+		},
+	}
+	
+	pass := 0
+	fail := 0
+	
+	for _, t := range tests {
+		fmt.Printf("TEST: %s ... ", t.Name)
+		
+		// Note: The Evaluator in the service mocks the Budget fetch. 
+		// So we are testing the service Integration + OPA.
+		
+		body, _ := json.Marshal(t.Estimate)
+		resp, err := http.Post("http://localhost:8086/evaluate", "application/json", bytes.NewBuffer(body))
+		if err != nil {
+			fmt.Printf("ERROR calling service: %v\n", err)
+			fail++
+			continue
+		}
+		defer resp.Body.Close()
+		
+		var res api.PolicyResult
+		json.NewDecoder(resp.Body).Decode(&res)
+		
+		if res.Allowed == t.ExpectedAllow {
+			fmt.Println("PASS")
+			pass++
+		} else {
+			fmt.Printf("FAIL (Got %v, Expected %v)\n", res.Allowed, t.ExpectedAllow)
+			fail++
+		}
+	}
+	
+	fmt.Printf("\nResult: %d PASS, %d FAIL\n", pass, fail)
+	if fail > 0 {
+		os.Exit(1)
+	}
+}
+
+
+================================================================================
+FILE: usage-engine\go.mod
+================================================================================
+
+module github.com/futuristic-iac/usage-engine
+
+go 1.25.5
+
+
+================================================================================
+FILE: usage-engine\main.go
+================================================================================
+
+package main
+
+import (
+	"encoding/json"
+	"io"
+	"log"
+	"net/http"
+
+	"github.com/futuristic-iac/pkg/api"
+	"github.com/futuristic-iac/usage-engine/service"
+)
+
+func main() {
+	http.HandleFunc("/forecast", handleForecast)
+	http.HandleFunc("/health", handleHealth)
+
+	port := ":8083"
+	log.Printf("Usage Engine starting on %s", port)
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
+func handleForecast(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	var req api.UsageForecastRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "Invalid request JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Execute implementation
+	forecast := service.Predict(req)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(forecast); err != nil {
+		log.Printf("Encode error: %v", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+
+================================================================================
+FILE: usage-engine\service\forecast.go
+================================================================================
+
+package service
+
+import (
+	"github.com/futuristic-iac/pkg/api"
+)
+
+func Predict(req api.UsageForecastRequest) (*api.UsageForecast, error) {
+	// Simple heuristic: 730 hours/month for everything unless specified
+	// In reality, this would query Prometheus or CloudWatch history.
+	
+	usage := 730.0 // Default for always-on compute
+	metric := "hours"
+	confidence := 0.8
+	
+	if req.Component.Provider == "aws" {
+		if req.Component.UsageType == "compute" {
+			// EC2: Time-based
+			usage = 730.0
+			metric = "hours"
+			confidence = 0.95
+		} else if req.Component.UsageType == "storage" {
+			// EBS: Size-based (allocated static), priced in GB-Mo.
+			// The Estimator expects "units" to be multiplied by price.
+			// Price is per GB-Mo. Size is in attributes.
+			// If we return usage=1.0 "months", Estimator will do size * 1.0 = size.
+			
+			usage = 1.0
+			metric = "months"
+			confidence = 0.9
+		}
+	}
+
+	return &api.UsageForecast{
+		MonthlyForecast: struct {
+			P50 float64 `json:"p50"`
+			P90 float64 `json:"p90"`
+		}{
+			P50: usage,
+			P90: usage, // Flat forecast for MVP
+		},
+		Metric:     metric, 
+		Confidence: confidence,
+	}, nil
+}
+

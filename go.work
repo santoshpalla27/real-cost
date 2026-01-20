@@ -1,0 +1,16 @@
+go 1.25.5
+
+use (
+	./estimation-core
+	./fiac-cli
+	./ingestion-service
+	./pkg/api
+	./pkg/focus
+	./pkg/graph
+	./pkg/platform
+	./pkg/policy
+	./policy-engine
+	./pricing-engine
+	./semantic-engine
+	./usage-engine
+)
