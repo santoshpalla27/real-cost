@@ -1,4 +1,4 @@
-Combined Code Export - 01/20/2026 02:05:44
+Combined Code Export - 01/20/2026 11:45:19
 
 
 ================================================================================
@@ -47,11 +47,12 @@ FILE: docker-compose.yml
 version: '3.9'
 
 services:
+  # --- Infrastructure ---
   clickhouse:
     image: clickhouse/clickhouse-server:23.8
     ports:
-      - "8123:8123" # HTTP port
-      - "9000:9000" # Native client port
+      - "8123:8123"
+      - "9000:9000"
     environment:
       - CLICKHOUSE_DB=iac_pricing
       - CLICKHOUSE_USER=default
@@ -61,17 +62,6 @@ services:
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
       interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7.0-alpine
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
       retries: 5
 
   opa:
@@ -82,23 +72,120 @@ services:
       - "run"
       - "--server"
       - "--addr=0.0.0.0:8181"
+      - "/policies"
+    volumes:
+      - ./policies:/policies
     healthcheck:
         test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8181/health"]
         interval: 5s
-        timeout: 5s
         retries: 5
 
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
+  # --- Microservices ---
+  # Using a shared base for dev speed (mount code, run go)
+  
+  ingestion:
+    image: golang:1.23
+    working_dir: /app
     volumes:
-      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - .:/app
+    command: go run ./ingestion-service/main.go
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=:8081
+      - AUTH_USER=admin
+      - AUTH_PASS=securepass123
+
+  semantic:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: go run ./semantic-engine/main.go
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=:8082
+      - AUTH_USER=admin
+      - AUTH_PASS=securepass123
+
+  usage:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: go run ./usage-engine/main.go
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=:8083
+      - AUTH_USER=admin
+      - AUTH_PASS=securepass123
+
+  pricing:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: go run ./pricing-engine/main.go
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=:8084
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - AUTH_USER=admin
+      - AUTH_PASS=securepass123
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  estimation:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: go run ./estimation-core/main.go
+    ports:
+      - "8085:8085"
+    environment:
+      - PORT=:8085
+      - USAGE_URL=http://usage:8083/forecast
+      - PRICING_URL=http://pricing:8084/price
+      - AUTH_USER=admin
+      - AUTH_PASS=securepass123
+    depends_on:
+      - usage
+      - pricing
+
+  policy:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: go run ./policy-engine/main.go
+    ports:
+      - "8086:8086"
+    environment:
+      - PORT=:8086
+      - OPA_URL=http://opa:8181
+      - BUDGET_URL=http://budget:8087/budget
+      - AUTH_USER=admin
+      - AUTH_PASS=securepass123
+    depends_on:
+      - opa
+
+  budget:
+    image: golang:1.23
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: go run ./budget-service/main.go
+    ports:
+      - "8087:8087"
+    environment:
+      - PORT=:8087
+      - AUTH_USER=admin
+      - AUTH_PASS=securepass123
 
 volumes:
   clickhouse_data:
@@ -108,9 +195,10 @@ volumes:
 FILE: go.work
 ================================================================================
 
-go 1.25.5
+go 1.23.0
 
 use (
+	./budget-service
 	./estimation-core
 	./fiac-cli
 	./ingestion-service
@@ -132,47 +220,103 @@ FILE: README.md
 
 # Futuristic IaC - Cost Intelligence Platform
 
-This platform provides Shift-Left Financial Governance for cloud infrastructure.
+**Status**: [Industry-Grade MVP](https://github.com/futuristic-iac/cost)  
+**Philosophy**: Fail-Closed | Audit-First | Policy-Driven
 
-## Architecture
+This platform provides Shift-Left Financial Governance for cloud infrastructure. It intercepts Terraform plans, calculates financial and carbon impact using specific policy rules, and enforcing budget constraints before deployment.
 
-- **Ingestion Service** (:8081): Parses Terraform Plans.
-- **Semantic Engine** (:8082): Maps resources to billable intents (Cost & Variance aware).
-- **Usage Engine** (:8083): Predicts usage (P50/P90) based on heuristics.
-- **Pricing Engine** (:8084): FOCUS-compliant pricing lookup (Time Travel capable).
-- **Estimation Core** (:8085): Orchestrates cost DAG calculation.
-- **Policy Engine** (:8086): Enforces OPA policies.
+---
 
-## How to Run
+## 🏗 Architecture
+
+The system follows a strict **Microservices DAG** architecture:
+
+1.  **Ingestion Service** (:8081): Parses Terraform Plan JSON (`configuration` aware).
+2.  **Semantic Engine** (:8082): Maps technical resources (`aws_instance`) to billable intents (Compute + Storage).
+3.  **Usage Engine** (:8083): Predicts usage metrics (`hours`, `gb_months`) based on heuristics/history.
+4.  **Pricing Engine** (:8084): FOCUS-compliant pricing lookup with Time-Travel semantics.
+5.  **Estimation Core** (:8085): Orchestrates the Cost Calculation DAG (Usage -> Price -> Cost).
+6.  **Policy Engine** (:8086): Enforces OPA policies and logs decisions to an Audit Trail.
+7.  **Budget Service** (:8087): Provides budget thresholds for governance.
+
+---
+
+## 🚦 Production Readiness: The "Real" vs "Mock" List
+
+This system is architecturally correct but contains mocks for external dependencies to facilitate standalone testing. **Review this list before deploying.**
+
+### 1. Pricing Engine (`pricing-engine`)
+*   **⚠️ Mocked:** The `ClickHouseStore` does **not** connect to a real ClickHouse database. It generates valid SQL and returns stubbed data ("t3.medium" @ $0.0416).
+*   **Production Action:**
+    *   Deploy a real ClickHouse cluster.
+    *   Uncomment the `drive.Open` code in `storage/clickhouse.go`.
+    *   Ingest real AWS Price List API data into the DB.
+
+### 2. Usage Engine (`usage-engine`)
+*   **⚠️ Mocked:** The `Predict` function uses static heuristics (e.g., "730 hours" for EC2, "1 month" for EBS). It does NOT query Prometheus or CloudWatch.
+*   **Production Action:**
+    *   Integrate with a Metrics Store (Prometheus/Thanos).
+    *   Implement lookups map resource tags (`app-id`) to historical utilization.
+
+### 3. Budget Service (`budget-service`)
+*   **⚠️ Mocked:** Returns a hardcoded budget of `$1200` for every request.
+*   **Production Action:**
+    *   Connect to a real Financial planning system (Anaplan, Netsuite, or internally managed DB).
+    *   Implement logic to fetch budgets by `CostCenter` or `ProjectID`.
+
+### 4. Authentication (`pkg/platform/auth.go`)
+*   **⚠️ Mocked:** The system uses Basic Auth. In this MVP, it reads `AUTH_USER`/`AUTH_PASS` from env, but previous defaults were `admin/admin`.
+*   **Production Action:**
+    *   **MUST** configure `AUTH_USER` and `AUTH_PASS` in the environment.
+    *   Ideally, replace Basic Auth with **mTLS** or **OIDC/JWT** (Service-to-Service auth) for Kubernetes deployments.
+
+### 5. Dependency Resolution (`ingestion-service`)
+*   **✅ Implementation:** Uses explicit `depends_on` from Terraform Configuration.
+*   **Limit:** Does not yet infer implicit dependencies (e.g., reference ID matching) fully.
+
+---
+
+## 🛠 How to Run
 
 ### Prerequisites
-- Go 1.23+
-- Docker & Docker Compose
-- Terraform
+*   Go 1.23+
+*   Docker & Docker Compose (for OPA/Redis/Prometheus)
 
-### 1. Start Infrastructure
+### 1. Start Platform
+This will launch all 7 microservices + ClickHouse + OPA.
 ```powershell
-docker-compose up -d
+docker-compose up --build
 ```
 
-### 2. Start Microservices
-(Run in separate terminals or use the helper script)
-```powershell
-./run_services.ps1
+### 2. Run Analysis (CLI)
+The services are exposed on localhost ports (8081-8087).
+```bash
+# Generate Plan
+terraform init
+terraform plan -out=tfplan
+terraform show -json tfplan > tfplan.json
+
+# Analyze
+cd fiac-cli
+# Set Auth to match docker-compose environment
+export AUTH_USER=admin
+export AUTH_PASS=securepass123
+go run main.go --plan ../tfplan.json
 ```
 
-### 3. Run Analysis
-1. Generate a Terraform plan JSON:
-   ```bash
-   terraform init
-   terraform plan -out=tfplan
-   terraform show -json tfplan > tfplan.json
-   ```
-2. Run the CLI:
-   ```powershell
-   cd fiac-cli
-   go run main.go --plan ../tfplan.json
-   ```
+---
+
+## ✅ Safety Validation (Phase 4 & 6)
+To verify the **Fail-Closed** safety mechanisms:
+1.  **Semantic Failure**: Modify a `resource_type` to something unknown. -> System returns `INCOMPLETE` (0 Confidence).
+2.  **Pricing Failure**: Use an instance type with no price. -> System returns `INCOMPLETE`.
+3.  **Policy Block**: If `Confidence < 0.8` or `Incomplete == true`, the Policy Engine **REJECTS** the plan.
+
+---
+
+## 📜 Audit Log
+Policy decisions are written to `policy_audit.log` in the root directory.
+Format: `JSON Lines` containing `{timestamp, input_hash, decision, violations}`.
 
 
 ================================================================================
@@ -192,6 +336,23 @@ Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "policy-engine/ma
 Write-Host "Services started! Waiting for health checks..."
 Start-Sleep -Seconds 5
 Write-Host "Ready to run CLI."
+
+
+================================================================================
+FILE: budget-service\go.mod
+================================================================================
+
+module github.com/futuristic-iac/budget-service
+
+go 1.23.0
+
+replace (
+	github.com/futuristic-iac/pkg/api => ../pkg/api
+	github.com/futuristic-iac/pkg/focus => ../pkg/focus
+	github.com/futuristic-iac/pkg/graph => ../pkg/graph
+	github.com/futuristic-iac/pkg/platform => ../pkg/platform
+	github.com/futuristic-iac/pkg/policy => ../pkg/policy
+)
 
 
 ================================================================================
@@ -242,7 +403,14 @@ FILE: estimation-core\go.mod
 
 module github.com/futuristic-iac/estimation-core
 
-go 1.25.5
+go 1.23.0
+replace (
+github.com/futuristic-iac/pkg/api => ../pkg/api
+github.com/futuristic-iac/pkg/focus => ../pkg/focus
+github.com/futuristic-iac/pkg/graph => ../pkg/graph
+github.com/futuristic-iac/pkg/platform => ../pkg/platform
+github.com/futuristic-iac/pkg/policy => ../pkg/policy
+)
 
 
 ================================================================================
@@ -574,7 +742,14 @@ FILE: fiac-cli\go.mod
 
 module github.com/futuristic-iac/fiac-cli
 
-go 1.25.5
+go 1.23.0
+replace (
+github.com/futuristic-iac/pkg/api => ../pkg/api
+github.com/futuristic-iac/pkg/focus => ../pkg/focus
+github.com/futuristic-iac/pkg/graph => ../pkg/graph
+github.com/futuristic-iac/pkg/platform => ../pkg/platform
+github.com/futuristic-iac/pkg/policy => ../pkg/policy
+)
 
 
 ================================================================================
@@ -806,7 +981,14 @@ FILE: ingestion-service\go.mod
 
 module github.com/futuristic-iac/ingestion-service
 
-go 1.25.5
+go 1.23.0
+replace (
+github.com/futuristic-iac/pkg/api => ../pkg/api
+github.com/futuristic-iac/pkg/focus => ../pkg/focus
+github.com/futuristic-iac/pkg/graph => ../pkg/graph
+github.com/futuristic-iac/pkg/platform => ../pkg/platform
+github.com/futuristic-iac/pkg/policy => ../pkg/policy
+)
 
 
 ================================================================================
@@ -1089,7 +1271,7 @@ FILE: pkg\api\go.mod
 
 module github.com/futuristic-iac/pkg/api
 
-go 1.25.5
+go 1.23.0
 
 
 ================================================================================
@@ -1126,7 +1308,7 @@ FILE: pkg\focus\go.mod
 
 module github.com/futuristic-iac/pkg/focus
 
-go 1.25.5
+go 1.23.0
 
 
 ================================================================================
@@ -1164,7 +1346,7 @@ FILE: pkg\graph\go.mod
 
 module github.com/futuristic-iac/pkg/graph
 
-go 1.25.5
+go 1.23.0
 
 
 ================================================================================
@@ -1358,7 +1540,7 @@ FILE: pkg\platform\go.mod
 
 module github.com/futuristic-iac/pkg/platform
 
-go 1.25.5
+go 1.23.0
 
 
 ================================================================================
@@ -1393,7 +1575,7 @@ FILE: pkg\policy\go.mod
 
 module github.com/futuristic-iac/pkg/policy
 
-go 1.25.5
+go 1.23.0
 
 
 ================================================================================
@@ -1447,35 +1629,35 @@ default allow = false
 budget_limit = input.budget.total_budget
 
 
-allow {
+allow if {
 	count(violations) == 0
 }
 
-violation[msg] {
+violations contains msg if {
 	input.estimate.total_monthly_cost.p90 > budget_limit
 	msg := sprintf("Total P90 monthly cost $%.2f exceeds budget of $%.2f", [input.estimate.total_monthly_cost.p90, budget_limit])
 }
 
-violations[msg] {
+violations contains msg if {
 	# Example: Carbon Intensity Check
 	# input.estimate.carbon.region_intensity == "high"
 	# msg := "Deployment in high carbon intensity region detected"
 	false
 }
 
-violations[msg] {
+violations contains msg if {
 	# Check for critical errors or incompleteness
 	input.estimate.is_incomplete == true
 	msg := sprintf("Estimation is incomplete due to missing data: %v", [input.estimate.errors])
 }
 
-violations[msg] {
+violations contains msg if {
 	# Confidence must be high enough for approval
 	input.estimate.confidence_score < 0.8
 	msg := sprintf("Estimation confidence too low (%.2f < 0.8) for approval", [input.estimate.confidence_score])
 }
 
-warnings[msg] {
+warnings contains msg if {
 	input.estimate.total_monthly_cost.p90 > 800
 	msg := sprintf("Approaching budget limit: $%.2f > $800", [input.estimate.total_monthly_cost.p90])
 }
@@ -1487,7 +1669,14 @@ FILE: policy-engine\go.mod
 
 module github.com/futuristic-iac/policy-engine
 
-go 1.25.5
+go 1.23.0
+replace (
+github.com/futuristic-iac/pkg/api => ../pkg/api
+github.com/futuristic-iac/pkg/focus => ../pkg/focus
+github.com/futuristic-iac/pkg/graph => ../pkg/graph
+github.com/futuristic-iac/pkg/platform => ../pkg/platform
+github.com/futuristic-iac/pkg/policy => ../pkg/policy
+)
 
 
 ================================================================================
@@ -1697,7 +1886,14 @@ FILE: pricing-engine\go.mod
 
 module github.com/futuristic-iac/pricing-engine
 
-go 1.25.5
+go 1.23.0
+replace (
+github.com/futuristic-iac/pkg/api => ../pkg/api
+github.com/futuristic-iac/pkg/focus => ../pkg/focus
+github.com/futuristic-iac/pkg/graph => ../pkg/graph
+github.com/futuristic-iac/pkg/platform => ../pkg/platform
+github.com/futuristic-iac/pkg/policy => ../pkg/policy
+)
 
 
 ================================================================================
@@ -1937,7 +2133,14 @@ FILE: semantic-engine\go.mod
 
 module github.com/futuristic-iac/semantic-engine
 
-go 1.25.5
+go 1.23.0
+replace (
+github.com/futuristic-iac/pkg/api => ../pkg/api
+github.com/futuristic-iac/pkg/focus => ../pkg/focus
+github.com/futuristic-iac/pkg/graph => ../pkg/graph
+github.com/futuristic-iac/pkg/platform => ../pkg/platform
+github.com/futuristic-iac/pkg/policy => ../pkg/policy
+)
 
 
 ================================================================================
@@ -2273,7 +2476,14 @@ FILE: usage-engine\go.mod
 
 module github.com/futuristic-iac/usage-engine
 
-go 1.25.5
+go 1.23.0
+replace (
+github.com/futuristic-iac/pkg/api => ../pkg/api
+github.com/futuristic-iac/pkg/focus => ../pkg/focus
+github.com/futuristic-iac/pkg/graph => ../pkg/graph
+github.com/futuristic-iac/pkg/platform => ../pkg/platform
+github.com/futuristic-iac/pkg/policy => ../pkg/policy
+)
 
 
 ================================================================================

@@ -15,8 +15,10 @@ services:
       - clickhouse_data:/var/lib/clickhouse
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
-      interval: 5s
+      interval: 10s
+      timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   opa:
     image: openpolicyagent/opa:latest
@@ -26,120 +28,167 @@ services:
       - "run"
       - "--server"
       - "--addr=0.0.0.0:8181"
+      - "--log-level=info"
+      - "--diagnostic-addr=0.0.0.0:8282"
       - "/policies"
     volumes:
       - ./policies:/policies
     healthcheck:
-        test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8181/health"]
-        interval: 5s
-        retries: 5
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8181/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
-  # --- Microservices ---
-  # Using a shared base for dev speed (mount code, run go)
-  
+  redis:
+    image: redis:7.0-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # --- Microservices (Built from Source) ---
+
   ingestion:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./ingestion-service/main.go
+    build:
+      context: .
+      dockerfile: ingestion-service/Dockerfile
     ports:
       - "8081:8081"
     environment:
       - PORT=:8081
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - AUTH_USER=${AUTH_USER:-admin}
+      - AUTH_PASS=${AUTH_PASS:-securepass123}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+    restart: unless-stopped
 
   semantic:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./semantic-engine/main.go
+    build:
+      context: .
+      dockerfile: semantic-engine/Dockerfile
     ports:
       - "8082:8082"
     environment:
       - PORT=:8082
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - AUTH_USER=${AUTH_USER:-admin}
+      - AUTH_PASS=${AUTH_PASS:-securepass123}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+    restart: unless-stopped
 
   usage:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./usage-engine/main.go
+    build:
+      context: .
+      dockerfile: usage-engine/Dockerfile
     ports:
       - "8083:8083"
     environment:
       - PORT=:8083
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - AUTH_USER=${AUTH_USER:-admin}
+      - AUTH_PASS=${AUTH_PASS:-securepass123}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+    restart: unless-stopped
 
   pricing:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./pricing-engine/main.go
+    build:
+      context: .
+      dockerfile: pricing-engine/Dockerfile
     ports:
       - "8084:8084"
     environment:
       - PORT=:8084
       - CLICKHOUSE_URL=http://clickhouse:8123
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - AUTH_USER=${AUTH_USER:-admin}
+      - AUTH_PASS=${AUTH_PASS:-securepass123}
     depends_on:
       clickhouse:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+    restart: unless-stopped
 
   estimation:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./estimation-core/main.go
+    build:
+      context: .
+      dockerfile: estimation-core/Dockerfile
     ports:
       - "8085:8085"
     environment:
       - PORT=:8085
       - USAGE_URL=http://usage:8083/forecast
       - PRICING_URL=http://pricing:8084/price
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - AUTH_USER=${AUTH_USER:-admin}
+      - AUTH_PASS=${AUTH_PASS:-securepass123}
     depends_on:
-      - usage
-      - pricing
+      usage:
+        condition: service_healthy
+      pricing:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8085/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+    restart: unless-stopped
 
   policy:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./policy-engine/main.go
+    build:
+      context: .
+      dockerfile: policy-engine/Dockerfile
     ports:
       - "8086:8086"
     environment:
       - PORT=:8086
       - OPA_URL=http://opa:8181
       - BUDGET_URL=http://budget:8087/budget
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - AUTH_USER=${AUTH_USER:-admin}
+      - AUTH_PASS=${AUTH_PASS:-securepass123}
     depends_on:
-      - opa
+      opa:
+        condition: service_healthy
+      budget:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8086/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+    restart: unless-stopped
 
   budget:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./budget-service/main.go
+    build:
+      context: .
+      dockerfile: budget-service/Dockerfile
     ports:
       - "8087:8087"
     environment:
       - PORT=:8087
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - AUTH_USER=${AUTH_USER:-admin}
+      - AUTH_PASS=${AUTH_PASS:-securepass123}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8087/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
   clickhouse_data:
