@@ -6,13 +6,17 @@ WORKDIR /build
 # Install git for module fetching
 RUN apk add --no-cache git
 
-# Copy the entire workspacee to ensure go.work resolution works correctly
+# Configure Go to treat our modules as private (skip proxy/sumdb)
+ENV GOPRIVATE=github.com/futuristic-iac/*
+ENV GOSUMDB=off
+
+# Copy the entire workspace to ensure go.work resolution works correctly
 # .dockerignore should be used to exclude .git, node_modules etc.
 COPY . .
 
 # Build the specific service
 # We need to be in the root for go.work to function, but point to the main.go
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/ingestion-service ./ingestion-service/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o /bin/ingestion-service ./ingestion-service/main.go
 
 # ---------- RUNTIME STAGE ----------
 FROM gcr.io/distroless/static-debian12
