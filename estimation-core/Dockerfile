@@ -2,6 +2,7 @@
 FROM golang:1.23-alpine AS builder
 
 WORKDIR /build
+RUN apk add --no-cache git
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/estimation-core ./estimation-core/main.go

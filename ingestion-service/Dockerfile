@@ -3,7 +3,10 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /build
 
-# Copy the entire workspace to ensure go.work resolution works correctly
+# Install git for module fetching
+RUN apk add --no-cache git
+
+# Copy the entire workspacee to ensure go.work resolution works correctly
 # .dockerignore should be used to exclude .git, node_modules etc.
 COPY . .
 
