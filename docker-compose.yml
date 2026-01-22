@@ -84,7 +84,7 @@ services:
   # Open Policy Agent (OPA)
   # =========================
   opa:
-    image: openpolicyagent/opa:0.60.0-rootless
+    image: openpolicyagent/opa:latest
     container_name: terracost-opa
     command:
       - "run"
