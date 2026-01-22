@@ -1,0 +1,9 @@
+{
+    "name": "TerraCost",
+    "short_name": "TerraCost",
+    "description": "IaC Cost Intelligence Platform",
+    "start_url": "/",
+    "display": "standalone",
+    "theme_color": "#10B981",
+    "background_color": "#0a0f1a"
+}
