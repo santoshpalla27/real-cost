@@ -50,23 +50,37 @@ FIAC Platform intercepts Terraform plans **before deployment** to:
 ## Quick Start
 
 ### Prerequisites
-- Go 1.23+
 - Docker & Docker Compose
 
-### Build
+### Deploy (One Command)
 
 ```bash
-# Build all services
-docker-compose -f deployments/compose/docker-compose.yml build
-
-# Run all services
-docker-compose -f deployments/compose/docker-compose.yml up -d
+docker-compose up -d
 ```
 
-### CLI Usage
+That's it! The API server is now running at `http://localhost:8080`
+
+### Verify
 
 ```bash
-# Estimate costs for a Terraform plan
+# Health check
+curl http://localhost:8080/health
+
+# Estimate costs
+curl -X POST http://localhost:8080/api/v1/estimate \
+  -H "Content-Type: application/json" \
+  -d '{"plan_json": {...}, "environment": "prod"}'
+```
+
+### Stop
+
+```bash
+docker-compose down
+```
+
+### CLI Usage (Optional)
+
+```bash
 go run ./cmd/cli estimate --plan examples/tfplan.json --output json
 ```
 

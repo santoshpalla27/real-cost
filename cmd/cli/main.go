@@ -124,6 +124,13 @@ func runEstimate(planFile, outputFormat, environment, policiesDir string) int {
 	log.Info().Msg("Predicting usage...")
 	predictor := usage.NewPredictor()
 	usageResult := predictor.Predict(billingResult.Components, environment)
+
+	// FAIL-CLOSED: Unknown environment is a fatal error
+	if usageResult.UnknownEnvironment {
+		log.Error().Str("env", environment).Msg("FAIL-CLOSED: Unknown environment")
+		log.Error().Msg(usageResult.EnvironmentError)
+		return ExitEstimateError
+	}
 	log.Info().Float64("avg_confidence", usageResult.AverageConfidence).Msg("Usage predicted")
 
 	// Step 4: Resolve pricing
@@ -153,8 +160,11 @@ func runEstimate(planFile, outputFormat, environment, policiesDir string) int {
 	log.Info().Msg("Evaluating policies...")
 	evaluator := policy.NewEvaluator(policiesDir)
 	policyResult, err := evaluator.Evaluate(estimateResult)
+	
+	// FAIL-CLOSED: Policy evaluation errors are fatal
 	if err != nil {
-		log.Warn().Err(err).Msg("Policy evaluation failed, continuing without policy checks")
+		log.Error().Err(err).Msg("FAIL-CLOSED: Policy evaluation failed")
+		return ExitPolicyDeny
 	}
 
 	// Output results
@@ -164,7 +174,7 @@ func runEstimate(planFile, outputFormat, environment, policiesDir string) int {
 		outputText(estimateResult, policyResult)
 	}
 
-	// Determine exit code
+	// Determine exit code - fail-closed order
 	if estimateResult.IsIncomplete {
 		return ExitIncomplete
 	}

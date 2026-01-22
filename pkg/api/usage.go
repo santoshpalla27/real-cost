@@ -14,7 +14,10 @@ type UsagePrediction struct {
 
 // UsageResult holds all predictions for a request.
 type UsageResult struct {
-	Predictions       []UsagePrediction `json:"predictions"`
-	AverageConfidence float64           `json:"average_confidence"`
-	Environment       string            `json:"environment"`
+	Predictions        []UsagePrediction `json:"predictions"`
+	AverageConfidence  float64           `json:"average_confidence"`
+	Environment        string            `json:"environment"`
+	// FAIL-CLOSED: Set when environment is unknown
+	UnknownEnvironment bool   `json:"unknown_environment,omitempty"`
+	EnvironmentError   string `json:"environment_error,omitempty"`
 }

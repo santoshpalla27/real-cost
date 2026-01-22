@@ -174,21 +174,49 @@ func extractDependencies(plan TerraformPlan, nodes []api.ResourceNode) []api.Dep
 		nodeIDs[n.ID] = true
 	}
 
-	// Simple dependency extraction from attribute references
+	// Extract dependencies from attribute references (recursive)
 	for _, node := range nodes {
-		for _, value := range node.Attributes {
-			if strVal, ok := value.(string); ok {
-				// Check if this value references another resource
-				for otherID := range nodeIDs {
-					if otherID != node.ID && strings.Contains(strVal, otherID) {
-						deps = append(deps, api.Dependency{
-							FromID: node.ID,
-							ToID:   otherID,
-							Type:   api.DependencyTypeReference,
-						})
-					}
-				}
+		foundDeps := findReferencesInValue(node.Attributes, node.ID, nodeIDs)
+		deps = append(deps, foundDeps...)
+	}
+
+	// Deduplicate dependencies
+	seen := make(map[string]bool)
+	unique := []api.Dependency{}
+	for _, d := range deps {
+		key := d.FromID + "->" + d.ToID
+		if !seen[key] {
+			seen[key] = true
+			unique = append(unique, d)
+		}
+	}
+
+	return unique
+}
+
+// findReferencesInValue recursively searches for resource references in attribute values
+func findReferencesInValue(value interface{}, currentNodeID string, nodeIDs map[string]bool) []api.Dependency {
+	deps := []api.Dependency{}
+
+	switch v := value.(type) {
+	case string:
+		// Check for direct references like "aws_instance.web" or "${aws_instance.web.id}"
+		for otherID := range nodeIDs {
+			if otherID != currentNodeID && strings.Contains(v, otherID) {
+				deps = append(deps, api.Dependency{
+					FromID: currentNodeID,
+					ToID:   otherID,
+					Type:   api.DependencyTypeReference,
+				})
 			}
+		}
+	case map[string]interface{}:
+		for _, subVal := range v {
+			deps = append(deps, findReferencesInValue(subVal, currentNodeID, nodeIDs)...)
+		}
+	case []interface{}:
+		for _, item := range v {
+			deps = append(deps, findReferencesInValue(item, currentNodeID, nodeIDs)...)
 		}
 	}
 

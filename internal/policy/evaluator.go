@@ -30,6 +30,13 @@ func NewEvaluator(policiesDir string) *Evaluator {
 func (e *Evaluator) Evaluate(est *estimation.Result) (*Result, error) {
 	result := &Result{Denials: []string{}, Warnings: []string{}, Passed: true}
 
+	// FAIL-CLOSED: Incomplete estimation must not pass policy evaluation
+	if est.IsIncomplete {
+		result.Passed = false
+		result.Denials = append(result.Denials, "BLOCKED: Estimation is incomplete - cannot evaluate policies on partial data")
+		return result, nil
+	}
+
 	input := map[string]any{
 		"total_cost_p50":      est.TotalCost.P50,
 		"total_cost_p90":      est.TotalCost.P90,
@@ -37,26 +44,40 @@ func (e *Evaluator) Evaluate(est *estimation.Result) (*Result, error) {
 		"confidence_score":    est.ConfidenceScore,
 		"is_incomplete":       est.IsIncomplete,
 		"cost_growth_percent": 0.0,
+		"error_count":         len(est.Errors),
 	}
 
 	files, err := filepath.Glob(filepath.Join(e.policiesDir, "*.rego"))
-	if err != nil || len(files) == 0 {
+	if err != nil {
+		// FAIL-CLOSED: Cannot list policies = fail
+		return nil, fmt.Errorf("FAIL-CLOSED: cannot list policies: %w", err)
+	}
+
+	// FAIL-CLOSED: No policies = explicit pass only if configured
+	if len(files) == 0 {
+		result.Warnings = append(result.Warnings, "No policies found - defaulting to pass")
 		return result, nil
 	}
 
 	for _, file := range files {
 		policy, err := os.ReadFile(file)
 		if err != nil {
-			continue
+			// FAIL-CLOSED: Cannot read policy = fail
+			return nil, fmt.Errorf("FAIL-CLOSED: cannot read policy %s: %w", file, err)
 		}
 
 		denials, err := e.evalQuery(string(policy), "data.fiac.deny", input)
-		if err == nil {
-			result.Denials = append(result.Denials, denials...)
+		if err != nil {
+			// FAIL-CLOSED: Policy evaluation error = fail
+			return nil, fmt.Errorf("FAIL-CLOSED: policy evaluation failed for %s: %w", file, err)
 		}
+		result.Denials = append(result.Denials, denials...)
 
 		warnings, err := e.evalQuery(string(policy), "data.fiac.warn", input)
-		if err == nil {
+		if err != nil {
+			// Warnings evaluation failure is less critical, but still log
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Warning evaluation failed for %s", file))
+		} else {
 			result.Warnings = append(result.Warnings, warnings...)
 		}
 	}

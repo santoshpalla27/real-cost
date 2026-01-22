@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  fiac-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fiac-api
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - POLICIES_DIR=/app/policies
+      - ENV=production
+    volumes:
+      - ./policies:/app/policies:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Nginx reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    container_name: fiac-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./deployments/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      fiac-api:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - production

@@ -45,13 +45,16 @@ func (c *Calculator) CalculateFromComponents(
 		Errors:    []api.EstimationError{},
 	}
 
+	// FAIL-CLOSED: Semantic mapping errors → incomplete with zero totals
 	if len(semantics.MappingErrors) > 0 {
 		result.IsIncomplete = true
+		result.ConfidenceScore = 0
 		for _, err := range semantics.MappingErrors {
 			result.Errors = append(result.Errors, api.EstimationError{
 				Code: err.Code, Message: err.Message, Recoverable: err.Recoverable,
 			})
 		}
+		// Zero totals - do not return partial costs
 		return result, nil
 	}
 
@@ -66,11 +69,31 @@ func (c *Calculator) CalculateFromComponents(
 
 	var confidences []float64
 	var totalP50, totalP90, totalCarbon float64
+	var missingData bool
 
 	for _, comp := range semantics.Components {
 		u, hasU := usageMap[comp.ID]
 		p, hasP := priceMap[comp.ID]
-		if !hasU || !hasP {
+
+		// FAIL-CLOSED: Missing usage or pricing = incomplete estimation
+		if !hasU {
+			result.Errors = append(result.Errors, api.EstimationError{
+				ResourceID:  comp.ResourceID,
+				Code:        "MISSING_USAGE",
+				Message:     "No usage prediction for component: " + comp.ID,
+				Recoverable: false,
+			})
+			missingData = true
+			continue
+		}
+		if !hasP {
+			result.Errors = append(result.Errors, api.EstimationError{
+				ResourceID:  comp.ResourceID,
+				Code:        "MISSING_PRICE",
+				Message:     "No price found for component: " + comp.ID,
+				Recoverable: false,
+			})
+			missingData = true
 			continue
 		}
 
@@ -86,6 +109,17 @@ func (c *Calculator) CalculateFromComponents(
 			SKU: p.SKUID, Price: p.PricePerUnit, Unit: p.Unit,
 			Quantity: u.P50, MonthlyCost: p50Cost, Explanation: p.Explanation,
 		})
+	}
+
+	// FAIL-CLOSED: If any component missing data, zero all totals
+	if missingData {
+		result.IsIncomplete = true
+		result.ConfidenceScore = 0
+		result.TotalCost.P50 = 0
+		result.TotalCost.P90 = 0
+		result.TotalCarbon.KgCO2e = 0
+		result.Drivers = nil
+		return result, nil
 	}
 
 	result.TotalCost.P50, result.TotalCost.P90 = totalP50, totalP90

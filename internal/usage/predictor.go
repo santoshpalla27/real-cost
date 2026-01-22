@@ -50,15 +50,22 @@ func NewPredictor() *Predictor {
 }
 
 // Predict generates usage predictions for components.
+// FAIL-CLOSED: Unknown environment returns error result with zero confidence.
 func (p *Predictor) Predict(components []api.BillingComponent, environment string) *api.UsageResult {
 	profile, exists := p.profiles[environment]
-	if !exists {
-		profile = p.profiles["dev"] // Conservative default
-	}
-
+	
 	result := &api.UsageResult{
 		Predictions: []api.UsagePrediction{},
 		Environment: environment,
+	}
+
+	// FAIL-CLOSED: Unknown environment = zero confidence, explicit warning
+	if !exists {
+		result.AverageConfidence = 0
+		result.UnknownEnvironment = true
+		result.EnvironmentError = "Unknown environment '" + environment + "' - valid: dev, staging, prod"
+		// Return empty predictions - caller must handle
+		return result
 	}
 
 	var confidenceSum float64

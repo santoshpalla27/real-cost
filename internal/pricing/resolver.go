@@ -36,6 +36,10 @@ type ResolvedPrice struct {
 	Unit            string  `json:"unit"`
 	CarbonIntensity float64 `json:"carbon_intensity"`
 	Explanation     string  `json:"explanation"`
+	// TRANSPARENCY: Track when fallbacks were used
+	RegionFallback  bool   `json:"region_fallback,omitempty"`  // True if used default region
+	IsStubPrice     bool   `json:"is_stub_price"`              // True if using hardcoded stub data
+	OriginalRegion  string `json:"original_region,omitempty"`  // Requested region
 }
 
 // Resolver matches billing components to prices.
@@ -74,14 +78,22 @@ func (r *Resolver) resolveComponent(comp api.BillingComponent, region string) (R
 	// Build SKU lookup key
 	skuKey := r.buildSKUKey(comp)
 	
+	regionFallback := false
 	entry, exists := r.store.Get(skuKey, region)
 	if !exists {
-		// Try with default region
+		// Try with default region - mark as fallback
 		entry, exists = r.store.Get(skuKey, "us-east-1")
 		if !exists {
 			return ResolvedPrice{}, fmt.Errorf("no price found for SKU: %s in region: %s", skuKey, region)
 		}
+		regionFallback = true
 	}
+
+	explanation := fmt.Sprintf("Matched %s at $%.6f/%s", entry.SKUID, entry.PricePerUnit, entry.Unit)
+	if regionFallback {
+		explanation += " [FALLBACK: used us-east-1 pricing]"
+	}
+	explanation += " [STUB DATA - not production pricing]"
 
 	return ResolvedPrice{
 		ComponentID:     comp.ID,
@@ -89,7 +101,10 @@ func (r *Resolver) resolveComponent(comp api.BillingComponent, region string) (R
 		PricePerUnit:    entry.PricePerUnit,
 		Unit:            entry.Unit,
 		CarbonIntensity: entry.CarbonIntensity,
-		Explanation:     fmt.Sprintf("Matched %s at $%.6f/%s", entry.SKUID, entry.PricePerUnit, entry.Unit),
+		Explanation:     explanation,
+		RegionFallback:  regionFallback,
+		IsStubPrice:     true, // All current prices are stub data
+		OriginalRegion:  region,
 	}, nil
 }
 

@@ -42,6 +42,7 @@ func (e *Engine) RegisterMapper(resourceType string, mapper ResourceMapper) {
 }
 
 // Process converts an infrastructure graph to billing components.
+// FAIL-CLOSED: Halts immediately on unknown resource - no partial results.
 func (e *Engine) Process(graph *api.InfrastructureGraph) (*api.SemanticResult, error) {
 	if graph == nil {
 		return nil, fmt.Errorf("graph cannot be nil")
@@ -52,32 +53,46 @@ func (e *Engine) Process(graph *api.InfrastructureGraph) (*api.SemanticResult, e
 		MappingErrors: []api.MappingError{},
 	}
 
+	// First pass: validate ALL resources are known before processing
 	for _, node := range graph.Nodes {
-		// Skip resources being deleted
 		if node.ChangeAction == api.ChangeActionDelete {
 			continue
 		}
 
-		mapper, exists := e.mappers[node.Type]
+		_, exists := e.mappers[node.Type]
 		if !exists {
-			// Fail closed: unknown resources generate errors
+			// FAIL-CLOSED: Unknown resource = immediate halt
 			err := fiacerrors.NewUnknownResourceError(node.Type, node.ID)
 			result.MappingErrors = append(result.MappingErrors, api.MappingError{
 				Code:        err.Code,
 				Message:     err.Message,
 				Recoverable: false,
 			})
+			// DO NOT CONTINUE - return immediately with error
+			// No partial components will be emitted
+			return result, nil
+		}
+	}
+
+	// Second pass: only process if ALL resources are known
+	for _, node := range graph.Nodes {
+		if node.ChangeAction == api.ChangeActionDelete {
 			continue
 		}
 
+		mapper := e.mappers[node.Type] // Safe - validated above
+
 		components, err := mapper.Map(node)
 		if err != nil {
+			// FAIL-CLOSED: Mapping error = immediate halt
 			result.MappingErrors = append(result.MappingErrors, api.MappingError{
 				Code:        fiacerrors.ErrCodeMissingAttribute,
 				Message:     err.Error(),
 				Recoverable: false,
 			})
-			continue
+			// Clear any components we've accumulated
+			result.Components = nil
+			return result, nil
 		}
 
 		result.Components = append(result.Components, components...)
