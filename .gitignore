@@ -1,128 +1,187 @@
+# =========================
+# Go
+# =========================
 # Binaries
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-/fiac
-/cmd/cli/cli
-/cmd/ingestion/ingestion
-/cmd/semantic/semantic
-/cmd/usage/usage
-/cmd/pricing/pricing
-/cmd/estimation/estimation
+terraform-cost
+terraform-cost-server
 
-# Build output
-/bin/
-/dist/
-/out/
-
-combine-code.ps1
-combined-code.txt
-
-# Test binary, built with `go test -c`
+# Test binary
 *.test
 
-# Output of the go coverage tool
+# Output of go coverage tool
 *.out
-coverage.html
-coverage.txt
 
-# Go workspace
+# Go workspace file
 go.work
-go.work.sum
 
-# Dependency directories
-vendor/
+# Vendor directory (if not using modules)
+# vendor/
 
-# IDE and editor
-.idea/
+# =========================
+# IDE / Editor
+# =========================
+# VS Code
 .vscode/
+*.code-workspace
+
+# JetBrains (GoLand, IntelliJ)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim
 *.swp
 *.swo
 *~
-.project
-.classpath
-.settings/
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# Sublime Text
 *.sublime-workspace
 *.sublime-project
 
-# OS files
+# =========================
+# OS Generated
+# =========================
+# macOS
 .DS_Store
-.DS_Store?
+.AppleDouble
+.LSOverride
 ._*
 .Spotlight-V100
 .Trashes
-ehthumbs.db
+
+# Windows
 Thumbs.db
-desktop.ini
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
 
-# Logs
-*.log
-logs/
+# Linux
+*~
 
-# Debug
-debug
-*.prof
-*.pprof
-cpu.out
-mem.out
-trace.out
-
-# Environment
-.env
-.env.local
-.env.*.local
-*.env
-
-# Terraform (for testing)
-.terraform/
+# =========================
+# Terraform (test files)
+# =========================
 *.tfstate
 *.tfstate.*
+*.tfstate.backup
+.terraform/
 .terraform.lock.hcl
 crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
 
-# Docker
-docker-compose.override.yml
-.docker/
+# =========================
+# Application Specific
+# =========================
+# Local config
+.terraform-cost.json
+.terraform-cost.yaml
+.terraform-cost.yml
+config.local.json
+config.local.yaml
 
-# Temporary files
+# Cache
+.cache/
+cache/
+*.cache
+
+# Data directory
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Pricing data exports
+pricing-*.json
+pricing-*.csv
+
+# Logs
+logs/
+*.log
+
+# Temp files
 tmp/
 temp/
 *.tmp
-*.temp
-*.bak
-*.backup
 
-# OPA bundles
-*.tar.gz
-bundle/
+# Build artifacts
+dist/
+build/
 
-# Local development
-local/
-.local/
-scratch/
 
-# Secrets
-secrets/
+# Secrets (NEVER commit these)
+
 *.pem
 *.key
 *.crt
 *.p12
 *.pfx
+.env
+.env.*
+!.env.example
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
+# =========================
+# Docker
+# =========================
+# Ignore local docker overrides
+docker-compose.override.yml
+docker-compose.local.yml
+.docker/
 
-# Cache
-.cache/
-__pycache__/
+# =========================
+# CI/CD
+# =========================
+# GitHub Actions local testing
+.act/
 
-# Air (live reload)
-.air.toml
-tmp/
+# =========================
+# Testing
+# =========================
+# Test output
+testdata/output/
+*.test.json
 
-# Goreleaser
-/dist/
+# Benchmarks
+*.bench
+
+# =========================
+# Documentation
+# =========================
+# Generated docs
+docs/_build/
+site/
+
+# =========================
+# Project directories to ignore
+# =========================
+# User's terraform projects mounted in docker
+projects/
+
+# Local examples with real data
+examples/local/
+examples/private/
+
+combine-code.ps1
+combined-code.txt
