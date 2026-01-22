@@ -56,8 +56,7 @@ services:
     image: terracost:latest
     container_name: terracost-api
     depends_on:
-      clickhouse:
-        condition: service_healthy
+      - clickhouse
     environment:
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_PORT=9000
@@ -117,8 +116,7 @@ services:
     image: terracost-ui:latest
     container_name: terracost-ui
     depends_on:
-      api:
-        condition: service_healthy
+      - api
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8080
       - BACKEND_API_URL=http://api:8080
