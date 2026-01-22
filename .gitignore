@@ -1,0 +1,128 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/fiac
+/cmd/cli/cli
+/cmd/ingestion/ingestion
+/cmd/semantic/semantic
+/cmd/usage/usage
+/cmd/pricing/pricing
+/cmd/estimation/estimation
+
+# Build output
+/bin/
+/dist/
+/out/
+
+combine-code.ps1
+combined-code.txt
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+coverage.txt
+
+# Go workspace
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Debug
+debug
+*.prof
+*.pprof
+cpu.out
+mem.out
+trace.out
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Terraform (for testing)
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# OPA bundles
+*.tar.gz
+bundle/
+
+# Local development
+local/
+.local/
+scratch/
+
+# Secrets
+secrets/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+.cache/
+__pycache__/
+
+# Air (live reload)
+.air.toml
+tmp/
+
+# Goreleaser
+/dist/

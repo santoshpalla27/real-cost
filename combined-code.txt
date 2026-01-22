@@ -1,2599 +1,3742 @@
-Combined Code Export - 01/20/2026 11:45:19
+﻿################################################################################
+#                    FIAC PLATFORM - COMBINED SOURCE CODE                      #
+#                    Generated: 2026-01-22 13:48:58                        #
+################################################################################
 
 
 ================================================================================
-FILE: combine_files.ps1
+DIRECTORY STRUCTURE
+================================================================================
+cost/
+|-- cmd/
+|   |-- cli/
+|   |   +-- main.go
+|   |-- estimation/
+|   |   +-- main.go
+|   |-- ingestion/
+|   |   +-- main.go
+|   |-- pricing/
+|   |   +-- main.go
+|   |-- semantic/
+|   |   +-- main.go
+|   +-- usage/
+|       +-- main.go
+|-- deployments/
+|   |-- compose/
+|   |   +-- docker-compose.yml
+|   +-- docker/
+|       |-- estimation.Dockerfile
+|       |-- ingestion.Dockerfile
+|       |-- pricing.Dockerfile
+|       |-- semantic.Dockerfile
+|       +-- usage.Dockerfile
+|-- examples/
+|   +-- tfplan.json
+|-- internal/
+|   |-- carbon/
+|   |   +-- intensity.go
+|   |-- estimation/
+|   |   +-- calculator.go
+|   |-- graph/
+|   |   +-- parser.go
+|   |-- policy/
+|   |   +-- evaluator.go
+|   |-- pricing/
+|   |   +-- resolver.go
+|   |-- semantics/
+|   |   +-- engine.go
+|   +-- usage/
+|       +-- predictor.go
+|-- pkg/
+|   |-- api/
+|   |   |-- billing.go
+|   |   |-- estimation.go
+|   |   |-- graph.go
+|   |   |-- requests.go
+|   |   +-- usage.go
+|   |-- confidence/
+|   |   +-- math.go
+|   |-- errors/
+|   |   +-- severity.go
+|   +-- units/
+|       +-- canonical.go
+|-- policies/
+|   |-- budget.rego
+|   |-- carbon.rego
+|   +-- confidence.rego
+|-- .gitignore
+|-- combine-code.ps1
+|-- go.mod
+|-- go.sum
++-- README.md
+
+================================================================================
+FILE MANIFEST (36 files)
 ================================================================================
 
-$outFile = "combined-code.txt"
-$root = Get-Location
-$extensions = @(".go", ".mod", ".rego", ".md", ".yml", ".yaml", ".ps1", ".work")
+.gitignore                                                   1.3 KB
+cmd\cli\main.go                                              7.6 KB
+cmd\estimation\main.go                                       1.9 KB
+cmd\ingestion\main.go                                        1.9 KB
+cmd\pricing\main.go                                          1.9 KB
+cmd\semantic\main.go                                         1.9 KB
+cmd\usage\main.go                                            1.6 KB
+combine-code.ps1                                             5.3 KB
+deployments\compose\docker-compose.yml                       1.7 KB
+deployments\docker\estimation.Dockerfile                     0.3 KB
+deployments\docker\ingestion.Dockerfile                      0.3 KB
+deployments\docker\pricing.Dockerfile                        0.3 KB
+deployments\docker\semantic.Dockerfile                       0.3 KB
+deployments\docker\usage.Dockerfile                          0.3 KB
+examples\tfplan.json                                         2.9 KB
+go.mod                                                       1.8 KB
+go.sum                                                       15 KB
+internal\carbon\intensity.go                                 3.3 KB
+internal\estimation\calculator.go                            4 KB
+internal\graph\parser.go                                     5.7 KB
+internal\policy\evaluator.go                                 2.8 KB
+internal\pricing\resolver.go                                 8 KB
+internal\semantics\engine.go                                 10.9 KB
+internal\usage\predictor.go                                  6.6 KB
+pkg\api\billing.go                                           2.2 KB
+pkg\api\estimation.go                                        1.8 KB
+pkg\api\graph.go                                             1.7 KB
+pkg\api\requests.go                                          1.2 KB
+pkg\api\usage.go                                             0.7 KB
+pkg\confidence\math.go                                       1.6 KB
+pkg\errors\severity.go                                       2.4 KB
+pkg\units\canonical.go                                       1.9 KB
+policies\budget.rego                                         0.5 KB
+policies\carbon.rego                                         0.4 KB
+policies\confidence.rego                                     0.5 KB
+README.md                                                    4.5 KB
 
-# Initialize output file
-Set-Content -Path $outFile -Value "Combined Code Export - $(Get-Date)`n"
+Total: 36 files, 106.8 KB
 
-# Get all files recursively
-Get-ChildItem -Path $root -Recurse -File | Where-Object { 
-    $ext = $_.Extension
-    # Include specific extensions
-    ($extensions -contains $ext) -or ($_.Name -eq "Dockerfile")
-} | Where-Object {
-    # Exclude the output file itself and git directory
-    $_.Name -ne $outFile -and $_.FullName -notmatch "\\.git\\"
-} | ForEach-Object {
-    $relativePath = $_.FullName.Substring($root.Path.Length + 1)
+================================================================================
+FILE CONTENTS
+================================================================================
+
+--------------------------------------------------------------------------------
+FILE: .gitignore
+--------------------------------------------------------------------------------
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/fiac
+/cmd/cli/cli
+/cmd/ingestion/ingestion
+/cmd/semantic/semantic
+/cmd/usage/usage
+/cmd/pricing/pricing
+/cmd/estimation/estimation
+
+# Build output
+/bin/
+/dist/
+/out/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+coverage.txt
+
+# Go workspace
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Debug
+debug
+*.prof
+*.pprof
+cpu.out
+mem.out
+trace.out
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Terraform (for testing)
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# OPA bundles
+*.tar.gz
+bundle/
+
+# Local development
+local/
+.local/
+scratch/
+
+# Secrets
+secrets/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+.cache/
+__pycache__/
+
+# Air (live reload)
+.air.toml
+tmp/
+
+# Goreleaser
+/dist/
+
+--------------------------------------------------------------------------------
+FILE: cmd\cli\main.go
+--------------------------------------------------------------------------------
+
+// Package main provides the FIAC CLI tool for developers.
+// This tool orchestrates service calls and provides CI-safe output.
+package main
+
+import (
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"github.com/santoshpalla27/fiac-platform/internal/estimation"
+	"github.com/santoshpalla27/fiac-platform/internal/graph"
+	"github.com/santoshpalla27/fiac-platform/internal/policy"
+	"github.com/santoshpalla27/fiac-platform/internal/pricing"
+	"github.com/santoshpalla27/fiac-platform/internal/semantics"
+	"github.com/santoshpalla27/fiac-platform/internal/usage"
+)
+
+// Exit codes for CI/CD integration
+const (
+	ExitSuccess       = 0
+	ExitPolicyDeny    = 1
+	ExitPolicyWarn    = 2
+	ExitParseError    = 10
+	ExitEstimateError = 11
+	ExitIncomplete    = 20
+)
+
+func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	// Define subcommands
+	estimateCmd := flag.NewFlagSet("estimate", flag.ExitOnError)
+	planFile := estimateCmd.String("plan", "", "Path to Terraform plan JSON file")
+	outputFormat := estimateCmd.String("output", "text", "Output format: text, json")
+	environment := estimateCmd.String("env", "dev", "Environment: dev, staging, prod")
+	policiesDir := estimateCmd.String("policies", "policies", "Path to OPA policies directory")
+
+	if len(os.Args) < 2 {
+		printUsage()
+		os.Exit(ExitParseError)
+	}
+
+	switch os.Args[1] {
+	case "estimate":
+		estimateCmd.Parse(os.Args[2:])
+		exitCode := runEstimate(*planFile, *outputFormat, *environment, *policiesDir)
+		os.Exit(exitCode)
+	case "version":
+		fmt.Println("fiac v0.1.0")
+		os.Exit(ExitSuccess)
+	case "help", "-h", "--help":
+		printUsage()
+		os.Exit(ExitSuccess)
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
+		printUsage()
+		os.Exit(ExitParseError)
+	}
+}
+
+func printUsage() {
+	fmt.Println(`FIAC - IaC Cost Intelligence Platform
+
+Usage:
+  fiac <command> [options]
+
+Commands:
+  estimate    Estimate costs for a Terraform plan
+  version     Print version information
+  help        Show this help message
+
+Estimate Options:
+  --plan      Path to Terraform plan JSON file (required)
+  --output    Output format: text, json (default: text)
+  --env       Environment: dev, staging, prod (default: dev)
+  --policies  Path to OPA policies directory (default: policies)
+
+Examples:
+  fiac estimate --plan tfplan.json --output json
+  fiac estimate --plan tfplan.json --env prod`)
+}
+
+func runEstimate(planFile, outputFormat, environment, policiesDir string) int {
+	if planFile == "" {
+		log.Error().Msg("--plan flag is required")
+		return ExitParseError
+	}
+
+	// Read plan file
+	planData, err := os.ReadFile(planFile)
+	if err != nil {
+		log.Error().Err(err).Str("file", planFile).Msg("Failed to read plan file")
+		return ExitParseError
+	}
+
+	// Step 1: Parse Terraform plan
+	log.Info().Msg("Parsing Terraform plan...")
+	infraGraph, err := graph.ParseTerraformPlan(planData)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to parse Terraform plan")
+		return ExitParseError
+	}
+	log.Info().Int("resources", len(infraGraph.Nodes)).Msg("Infrastructure graph built")
+
+	// Step 2: Extract billing semantics
+	log.Info().Msg("Extracting billing semantics...")
+	semanticEngine := semantics.NewEngine()
+	billingResult, err := semanticEngine.Process(infraGraph)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to extract billing semantics")
+		return ExitEstimateError
+	}
+	log.Info().
+		Int("components", len(billingResult.Components)).
+		Int("errors", len(billingResult.MappingErrors)).
+		Msg("Billing components extracted")
+
+	// Step 3: Predict usage
+	log.Info().Msg("Predicting usage...")
+	predictor := usage.NewPredictor()
+	usageResult := predictor.Predict(billingResult.Components, environment)
+	log.Info().Float64("avg_confidence", usageResult.AverageConfidence).Msg("Usage predicted")
+
+	// Step 4: Resolve pricing
+	log.Info().Msg("Resolving pricing...")
+	resolver := pricing.NewResolver()
+	priceResult, err := resolver.Resolve(billingResult.Components, infraGraph.ProviderContext.Region, nil)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to resolve pricing")
+		return ExitEstimateError
+	}
+	log.Info().Int("prices", len(priceResult.Prices)).Msg("Prices resolved")
+
+	// Step 5: Calculate estimation
+	log.Info().Msg("Calculating cost estimation...")
+	calculator := estimation.NewCalculator()
+	estimateResult, err := calculator.CalculateFromComponents(
+		billingResult,
+		usageResult,
+		priceResult,
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to calculate estimation")
+		return ExitEstimateError
+	}
+
+	// Step 6: Evaluate policies
+	log.Info().Msg("Evaluating policies...")
+	evaluator := policy.NewEvaluator(policiesDir)
+	policyResult, err := evaluator.Evaluate(estimateResult)
+	if err != nil {
+		log.Warn().Err(err).Msg("Policy evaluation failed, continuing without policy checks")
+	}
+
+	// Output results
+	if outputFormat == "json" {
+		outputJSON(estimateResult, policyResult)
+	} else {
+		outputText(estimateResult, policyResult)
+	}
+
+	// Determine exit code
+	if estimateResult.IsIncomplete {
+		return ExitIncomplete
+	}
+	if policyResult != nil && len(policyResult.Denials) > 0 {
+		return ExitPolicyDeny
+	}
+	if policyResult != nil && len(policyResult.Warnings) > 0 {
+		return ExitPolicyWarn
+	}
+	return ExitSuccess
+}
+
+func outputJSON(result *estimation.Result, policyResult *policy.Result) {
+	output := map[string]any{
+		"estimation": result,
+	}
+	if policyResult != nil {
+		output["policy"] = policyResult
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	enc.Encode(output)
+}
+
+func outputText(result *estimation.Result, policyResult *policy.Result) {
+	fmt.Println("\nâ•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—")
+	fmt.Println("â•‘              FIAC Cost Estimation Report                     â•‘")
+	fmt.Println("â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•")
+
+	fmt.Printf("\nðŸ“Š Cost Estimate\n")
+	fmt.Printf("   P50 (Median):    $%.2f/month\n", result.TotalCost.P50)
+	fmt.Printf("   P90 (Pessimistic): $%.2f/month\n", result.TotalCost.P90)
+
+	fmt.Printf("\nðŸŒ± Carbon Footprint\n")
+	fmt.Printf("   Estimated:       %.2f kgCO2e/month\n", result.TotalCarbon.KgCO2e)
+
+	fmt.Printf("\nðŸŽ¯ Confidence Score: %.0f%%\n", result.ConfidenceScore*100)
+
+	if result.IsIncomplete {
+		fmt.Println("\nâš ï¸  INCOMPLETE ESTIMATE")
+		fmt.Println("   Some resources could not be mapped. Total costs set to 0.")
+		for _, err := range result.Errors {
+			fmt.Printf("   â€¢ %s: %s\n", err.ResourceID, err.Message)
+		}
+	}
+
+	if len(result.Drivers) > 0 {
+		fmt.Println("\nðŸ’° Cost Drivers")
+		for _, d := range result.Drivers {
+			fmt.Printf("   â€¢ %s: $%.2f (%.0f%%)\n", d.Name, d.MonthlyCost, d.Percentage)
+		}
+	}
+
+	if policyResult != nil {
+		if len(policyResult.Denials) > 0 {
+			fmt.Println("\nðŸš« POLICY VIOLATIONS (Blocking)")
+			for _, d := range policyResult.Denials {
+				fmt.Printf("   â€¢ %s\n", d)
+			}
+		}
+		if len(policyResult.Warnings) > 0 {
+			fmt.Println("\nâš ï¸  POLICY WARNINGS")
+			for _, w := range policyResult.Warnings {
+				fmt.Printf("   â€¢ %s\n", w)
+			}
+		}
+		if len(policyResult.Denials) == 0 && len(policyResult.Warnings) == 0 {
+			fmt.Println("\nâœ… All policies passed")
+		}
+	}
+
+	fmt.Println()
+}
+
+--------------------------------------------------------------------------------
+FILE: cmd\estimation\main.go
+--------------------------------------------------------------------------------
+
+// Package main provides the Cost + Carbon Estimation Core entrypoint.
+// This service combines semantics, usage, and pricing into final estimates.
+package main
+
+import (
+	"encoding/json"
+	"net/http"
+	"os"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"github.com/santoshpalla27/fiac-platform/internal/estimation"
+	"github.com/santoshpalla27/fiac-platform/pkg/api"
+)
+
+func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8085"
+	}
+
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
+
+	r.Get("/health", handleHealth)
+	r.Post("/api/v1/estimate", handleEstimate)
+
+	log.Info().Str("port", port).Msg("Starting Cost + Carbon Estimation Core")
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		log.Fatal().Err(err).Msg("Server failed")
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "healthy",
+		"service": "estimation",
+	})
+}
+
+func handleEstimate(w http.ResponseWriter, r *http.Request) {
+	var req api.EstimateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	calculator := estimation.NewCalculator()
+	result, err := calculator.Calculate(req)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(api.ErrorResponse{
+			Error:   "estimation_failed",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+--------------------------------------------------------------------------------
+FILE: cmd\ingestion\main.go
+--------------------------------------------------------------------------------
+
+// Package main provides the IaC Ingestion Service entrypoint.
+// This service parses Terraform JSON plans and builds infrastructure graphs.
+package main
+
+import (
+	"encoding/json"
+	"net/http"
+	"os"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"github.com/santoshpalla27/fiac-platform/internal/graph"
+	"github.com/santoshpalla27/fiac-platform/pkg/api"
+)
+
+func main() {
+	// Configure logging
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8081"
+	}
+
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
+
+	// Health endpoint
+	r.Get("/health", handleHealth)
+
+	// API endpoints
+	r.Post("/api/v1/parse", handleParse)
+
+	log.Info().Str("port", port).Msg("Starting IaC Ingestion Service")
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		log.Fatal().Err(err).Msg("Server failed")
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "healthy",
+		"service": "ingestion",
+	})
+}
+
+func handleParse(w http.ResponseWriter, r *http.Request) {
+	var req api.ParseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Parse the Terraform plan
+	result, err := graph.ParseTerraformPlan(req.PlanJSON)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(api.ErrorResponse{
+			Error:   "parse_failed",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+--------------------------------------------------------------------------------
+FILE: cmd\pricing\main.go
+--------------------------------------------------------------------------------
+
+// Package main provides the Pricing & Carbon Engine entrypoint.
+// This service resolves SKU prices and carbon intensity.
+package main
+
+import (
+	"encoding/json"
+	"net/http"
+	"os"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"github.com/santoshpalla27/fiac-platform/internal/pricing"
+	"github.com/santoshpalla27/fiac-platform/pkg/api"
+)
+
+func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8084"
+	}
+
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
+
+	r.Get("/health", handleHealth)
+	r.Post("/api/v1/price", handlePrice)
+
+	log.Info().Str("port", port).Msg("Starting Pricing & Carbon Engine")
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		log.Fatal().Err(err).Msg("Server failed")
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "healthy",
+		"service": "pricing",
+	})
+}
+
+func handlePrice(w http.ResponseWriter, r *http.Request) {
+	var req api.PriceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	resolver := pricing.NewResolver()
+	result, err := resolver.Resolve(req.Components, req.Region, req.EffectiveDate)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(api.ErrorResponse{
+			Error:   "price_resolution_failed",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+--------------------------------------------------------------------------------
+FILE: cmd\semantic\main.go
+--------------------------------------------------------------------------------
+
+// Package main provides the Billing Semantic Engine entrypoint.
+// This service converts infrastructure resources to billing components.
+package main
+
+import (
+	"encoding/json"
+	"net/http"
+	"os"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"github.com/santoshpalla27/fiac-platform/internal/semantics"
+	"github.com/santoshpalla27/fiac-platform/pkg/api"
+)
+
+func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8082"
+	}
+
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
+
+	r.Get("/health", handleHealth)
+	r.Post("/api/v1/semantics", handleSemantics)
+
+	log.Info().Str("port", port).Msg("Starting Billing Semantic Engine")
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		log.Fatal().Err(err).Msg("Server failed")
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "healthy",
+		"service": "semantic",
+	})
+}
+
+func handleSemantics(w http.ResponseWriter, r *http.Request) {
+	var req api.SemanticRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	engine := semantics.NewEngine()
+	result, err := engine.Process(req.Graph)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(api.ErrorResponse{
+			Error:   "semantic_processing_failed",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+--------------------------------------------------------------------------------
+FILE: cmd\usage\main.go
+--------------------------------------------------------------------------------
+
+// Package main provides the Predictive Usage Engine entrypoint.
+// This service predicts resource usage with uncertainty bounds.
+package main
+
+import (
+	"encoding/json"
+	"net/http"
+	"os"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"github.com/santoshpalla27/fiac-platform/internal/usage"
+	"github.com/santoshpalla27/fiac-platform/pkg/api"
+)
+
+func main() {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8083"
+	}
+
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
+
+	r.Get("/health", handleHealth)
+	r.Post("/api/v1/predict", handlePredict)
+
+	log.Info().Str("port", port).Msg("Starting Predictive Usage Engine")
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		log.Fatal().Err(err).Msg("Server failed")
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "healthy",
+		"service": "usage",
+	})
+}
+
+func handlePredict(w http.ResponseWriter, r *http.Request) {
+	var req api.UsageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error": "invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	predictor := usage.NewPredictor()
+	result := predictor.Predict(req.Components, req.Environment)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+--------------------------------------------------------------------------------
+FILE: combine-code.ps1
+--------------------------------------------------------------------------------
+
+<#
+.SYNOPSIS
+    Combines all project files into a single text file with directory structure.
+.EXAMPLE
+    .\combine-code.ps1
+#>
+
+param(
+    [string]$OutputFile = "combined-code.txt",
+    [string]$ProjectRoot = (Get-Location).Path
+)
+
+# Configuration
+$ExcludeDirs = @('.git', 'node_modules', 'vendor', '.idea', '.vscode', 'bin', 'dist', 'tmp', '.terraform')
+$IncludeExtensions = @('.go', '.mod', '.sum', '.rego', '.json', '.yaml', '.yml', '.toml', '.md', '.sh', '.ps1', '.sql')
+$IncludeFiles = @('Dockerfile', 'Makefile', '.gitignore', '.dockerignore')
+
+function Get-DirectoryTree {
+    param([string]$Path, [string]$Prefix = "", [int]$Depth = 0)
     
-    Write-Host "Processing: $relativePath"
+    if ($Depth -gt 10) { return "" }
     
-    Add-Content -Path $outFile -Value "`n================================================================================"
-    Add-Content -Path $outFile -Value "FILE: $relativePath"
-    Add-Content -Path $outFile -Value "================================================================================`n"
+    $output = ""
+    $items = Get-ChildItem -Path $Path -Force -ErrorAction SilentlyContinue | 
+             Where-Object { $_.Name -notin $ExcludeDirs } |
+             Sort-Object { -not $_.PSIsContainer }, Name
     
-    Try {
-        $content = Get-Content -Path $_.FullName -Raw -ErrorAction Stop
-        Add-Content -Path $outFile -Value $content
-    } Catch {
-        Add-Content -Path $outFile -Value "[Error reading file: $($_.Exception.Message)]"
+    $count = $items.Count
+    $index = 0
+    
+    foreach ($item in $items) {
+        $index++
+        $isLast = ($index -eq $count)
+        $connector = if ($isLast) { "+-- " } else { "|-- " }
+        $childPrefix = if ($isLast) { "    " } else { "|   " }
+        
+        if ($item.PSIsContainer) {
+            $output += "$Prefix$connector$($item.Name)/`n"
+            $output += Get-DirectoryTree -Path $item.FullName -Prefix "$Prefix$childPrefix" -Depth ($Depth + 1)
+        } else {
+            $output += "$Prefix$connector$($item.Name)`n"
+        }
+    }
+    return $output
+}
+
+function Test-ShouldInclude {
+    param([System.IO.FileInfo]$File)
+    $ext = $File.Extension.ToLower()
+    $name = $File.Name
+    if ($IncludeExtensions -contains $ext) { return $true }
+    if ($IncludeFiles -contains $name) { return $true }
+    if ($name -like "*.Dockerfile") { return $true }
+    return $false
+}
+
+function Get-ProjectFiles {
+    param([string]$Path)
+    $files = @()
+    Get-ChildItem -Path $Path -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+        $file = $_
+        $relativePath = $file.FullName.Substring($Path.Length).TrimStart('\', '/')
+        $inExcluded = $false
+        foreach ($excludeDir in $ExcludeDirs) {
+            if ($relativePath -like "$excludeDir\*" -or $relativePath -like "$excludeDir/*") {
+                $inExcluded = $true
+                break
+            }
+        }
+        if (-not $inExcluded -and (Test-ShouldInclude -File $file)) {
+            $files += @{ FullPath = $file.FullName; RelativePath = $relativePath; Size = $file.Length }
+        }
+    }
+    return $files | Sort-Object { $_.RelativePath }
+}
+
+Write-Host ""
+Write-Host "FIAC Code Combiner" -ForegroundColor Cyan
+Write-Host ("=" * 40) -ForegroundColor DarkGray
+
+$startTime = Get-Date
+$separator = "=" * 80
+
+# Header
+$content = @"
+################################################################################
+#                    FIAC PLATFORM - COMBINED SOURCE CODE                      #
+#                    Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')                        #
+################################################################################
+
+
+$separator
+DIRECTORY STRUCTURE
+$separator
+
+"@
+
+# Add directory tree
+Write-Host "Generating directory structure..." -ForegroundColor Yellow
+$content += "$((Get-Item $ProjectRoot).Name)/`n"
+$content += Get-DirectoryTree -Path $ProjectRoot
+$content += "`n"
+
+# Get files
+Write-Host "Scanning files..." -ForegroundColor Yellow
+$files = Get-ProjectFiles -Path $ProjectRoot
+
+$content += "$separator`n"
+$content += "FILE MANIFEST ($($files.Count) files)`n"
+$content += "$separator`n`n"
+
+$totalSize = 0
+foreach ($file in $files) {
+    $sizeKB = [math]::Round($file.Size / 1KB, 1)
+    $line = $file.RelativePath.PadRight(60) + " " + "$sizeKB KB"
+    $content += "$line`n"
+    $totalSize += $file.Size
+}
+$content += "`nTotal: $($files.Count) files, $([math]::Round($totalSize / 1KB, 1)) KB`n"
+
+# Add file contents
+$content += "`n$separator`n"
+$content += "FILE CONTENTS`n"
+$content += "$separator`n"
+
+$processedCount = 0
+foreach ($file in $files) {
+    $processedCount++
+    Write-Host "`rProcessing files... $processedCount/$($files.Count)" -NoNewline -ForegroundColor Gray
+    
+    $fileSep = "-" * 80
+    $content += "`n$fileSep`n"
+    $content += "FILE: $($file.RelativePath)`n"
+    $content += "$fileSep`n`n"
+    
+    try {
+        $fileContent = Get-Content -Path $file.FullPath -Raw -ErrorAction Stop
+        if ($null -eq $fileContent) {
+            $content += "(Empty file)`n"
+        } else {
+            $content += $fileContent
+            if (-not $fileContent.EndsWith("`n")) {
+                $content += "`n"
+            }
+        }
+    } catch {
+        $content += "(Error reading file)`n"
     }
 }
 
-Write-Host "`nSuccessfully created $outFile"
+Write-Host ""
 
+# Write output
+Write-Host "Writing output file..." -ForegroundColor Yellow
+$content | Out-File -FilePath $OutputFile -Encoding UTF8
 
-================================================================================
-FILE: docker-compose.yml
-================================================================================
+$duration = ((Get-Date) - $startTime).TotalSeconds
+$outputSize = [math]::Round((Get-Item $OutputFile).Length / 1KB, 1)
 
-version: '3.9'
+Write-Host ""
+Write-Host "Complete!" -ForegroundColor Green
+Write-Host ("=" * 40) -ForegroundColor DarkGray
+Write-Host "  Files: $($files.Count)"
+Write-Host "  Size:  $outputSize KB"
+Write-Host "  Time:  $([math]::Round($duration, 2))s"
+Write-Host "  Output: $OutputFile" -ForegroundColor Cyan
+Write-Host ""
+
+--------------------------------------------------------------------------------
+FILE: deployments\compose\docker-compose.yml
+--------------------------------------------------------------------------------
+
+version: '3.8'
 
 services:
-  # --- Infrastructure ---
-  clickhouse:
-    image: clickhouse/clickhouse-server:23.8
-    ports:
-      - "8123:8123"
-      - "9000:9000"
-    environment:
-      - CLICKHOUSE_DB=iac_pricing
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=password
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
-      interval: 5s
-      retries: 5
-
-  opa:
-    image: openpolicyagent/opa:latest
-    ports:
-      - "8181:8181"
-    command:
-      - "run"
-      - "--server"
-      - "--addr=0.0.0.0:8181"
-      - "/policies"
-    volumes:
-      - ./policies:/policies
-    healthcheck:
-        test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8181/health"]
-        interval: 5s
-        retries: 5
-
-  # --- Microservices ---
-  # Using a shared base for dev speed (mount code, run go)
-  
   ingestion:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./ingestion-service/main.go
+    build:
+      context: ../..
+      dockerfile: deployments/docker/ingestion.Dockerfile
     ports:
       - "8081:8081"
     environment:
-      - PORT=:8081
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - PORT=8081
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   semantic:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./semantic-engine/main.go
+    build:
+      context: ../..
+      dockerfile: deployments/docker/semantic.Dockerfile
     ports:
       - "8082:8082"
     environment:
-      - PORT=:8082
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - PORT=8082
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   usage:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./usage-engine/main.go
+    build:
+      context: ../..
+      dockerfile: deployments/docker/usage.Dockerfile
     ports:
       - "8083:8083"
     environment:
-      - PORT=:8083
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - PORT=8083
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   pricing:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./pricing-engine/main.go
+    build:
+      context: ../..
+      dockerfile: deployments/docker/pricing.Dockerfile
     ports:
       - "8084:8084"
     environment:
-      - PORT=:8084
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
-    depends_on:
-      clickhouse:
-        condition: service_healthy
+      - PORT=8084
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   estimation:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./estimation-core/main.go
+    build:
+      context: ../..
+      dockerfile: deployments/docker/estimation.Dockerfile
     ports:
       - "8085:8085"
     environment:
-      - PORT=:8085
-      - USAGE_URL=http://usage:8083/forecast
-      - PRICING_URL=http://pricing:8084/price
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+      - PORT=8085
     depends_on:
+      - ingestion
+      - semantic
       - usage
       - pricing
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8085/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
-  policy:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./policy-engine/main.go
-    ports:
-      - "8086:8086"
-    environment:
-      - PORT=:8086
-      - OPA_URL=http://opa:8181
-      - BUDGET_URL=http://budget:8087/budget
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
-    depends_on:
-      - opa
+--------------------------------------------------------------------------------
+FILE: deployments\docker\estimation.Dockerfile
+--------------------------------------------------------------------------------
 
-  budget:
-    image: golang:1.23
-    working_dir: /app
-    volumes:
-      - .:/app
-    command: go run ./budget-service/main.go
-    ports:
-      - "8087:8087"
-    environment:
-      - PORT=:8087
-      - AUTH_USER=admin
-      - AUTH_PASS=securepass123
+FROM golang:1.23-alpine AS build
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o app ./cmd/estimation
 
-volumes:
-  clickhouse_data:
+FROM gcr.io/distroless/base-debian12
+COPY --from=build /app/app /app/app
+EXPOSE 8085
+ENTRYPOINT ["/app/app"]
 
+--------------------------------------------------------------------------------
+FILE: deployments\docker\ingestion.Dockerfile
+--------------------------------------------------------------------------------
 
-================================================================================
-FILE: go.work
-================================================================================
+FROM golang:1.23-alpine AS build
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o app ./cmd/ingestion
 
-go 1.23.0
+FROM gcr.io/distroless/base-debian12
+COPY --from=build /app/app /app/app
+EXPOSE 8081
+ENTRYPOINT ["/app/app"]
 
-use (
-	./budget-service
-	./estimation-core
-	./fiac-cli
-	./ingestion-service
-	./pkg/api
-	./pkg/focus
-	./pkg/graph
-	./pkg/platform
-	./pkg/policy
-	./policy-engine
-	./pricing-engine
-	./semantic-engine
-	./usage-engine
+--------------------------------------------------------------------------------
+FILE: deployments\docker\pricing.Dockerfile
+--------------------------------------------------------------------------------
+
+FROM golang:1.23-alpine AS build
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o app ./cmd/pricing
+
+FROM gcr.io/distroless/base-debian12
+COPY --from=build /app/app /app/app
+EXPOSE 8084
+ENTRYPOINT ["/app/app"]
+
+--------------------------------------------------------------------------------
+FILE: deployments\docker\semantic.Dockerfile
+--------------------------------------------------------------------------------
+
+FROM golang:1.23-alpine AS build
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o app ./cmd/semantic
+
+FROM gcr.io/distroless/base-debian12
+COPY --from=build /app/app /app/app
+EXPOSE 8082
+ENTRYPOINT ["/app/app"]
+
+--------------------------------------------------------------------------------
+FILE: deployments\docker\usage.Dockerfile
+--------------------------------------------------------------------------------
+
+FROM golang:1.23-alpine AS build
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -o app ./cmd/usage
+
+FROM gcr.io/distroless/base-debian12
+COPY --from=build /app/app /app/app
+EXPOSE 8083
+ENTRYPOINT ["/app/app"]
+
+--------------------------------------------------------------------------------
+FILE: examples\tfplan.json
+--------------------------------------------------------------------------------
+
+{
+  "format_version": "1.2",
+  "terraform_version": "1.6.0",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_instance.web",
+          "type": "aws_instance",
+          "name": "web",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "values": {
+            "ami": "ami-0c55b159cbfafe1f0",
+            "instance_type": "t3.medium",
+            "availability_zone": "us-east-1a",
+            "tags": {
+              "Name": "web-server",
+              "Environment": "prod"
+            },
+            "root_block_device": [
+              {
+                "volume_type": "gp3",
+                "volume_size": 50,
+                "iops": 3000,
+                "throughput": 125
+              }
+            ]
+          }
+        },
+        {
+          "address": "aws_ebs_volume.data",
+          "type": "aws_ebs_volume",
+          "name": "data",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "availability_zone": "us-east-1a",
+            "size": 100,
+            "type": "gp3",
+            "iops": 3000,
+            "throughput": 125,
+            "tags": {
+              "Name": "data-volume"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_instance.web",
+      "type": "aws_instance",
+      "name": "web",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "ami": "ami-0c55b159cbfafe1f0",
+          "instance_type": "t3.medium",
+          "availability_zone": "us-east-1a",
+          "tags": {
+            "Name": "web-server",
+            "Environment": "prod"
+          },
+          "root_block_device": [
+            {
+              "volume_type": "gp3",
+              "volume_size": 50,
+              "iops": 3000,
+              "throughput": 125
+            }
+          ]
+        }
+      }
+    },
+    {
+      "address": "aws_ebs_volume.data",
+      "type": "aws_ebs_volume",
+      "name": "data",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "availability_zone": "us-east-1a",
+          "size": 100,
+          "type": "gp3",
+          "iops": 3000,
+          "throughput": 125,
+          "tags": {
+            "Name": "data-volume"
+          }
+        }
+      }
+    }
+  ],
+  "configuration": {
+    "provider_config": {
+      "aws": {
+        "name": "aws",
+        "full_name": "registry.terraform.io/hashicorp/aws",
+        "expressions": {
+          "region": {
+            "constant_value": "us-east-1"
+          }
+        }
+      }
+    }
+  }
+}
+
+--------------------------------------------------------------------------------
+FILE: go.mod
+--------------------------------------------------------------------------------
+
+module github.com/santoshpalla27/fiac-platform
+
+go 1.23
+
+require (
+	github.com/go-chi/chi/v5 v5.1.0
+	github.com/open-policy-agent/opa v1.0.0
+	github.com/rs/zerolog v1.33.0
 )
 
-
-================================================================================
-FILE: README.md
-================================================================================
-
-# Futuristic IaC - Cost Intelligence Platform
-
-**Status**: [Industry-Grade MVP](https://github.com/futuristic-iac/cost)  
-**Philosophy**: Fail-Closed | Audit-First | Policy-Driven
-
-This platform provides Shift-Left Financial Governance for cloud infrastructure. It intercepts Terraform plans, calculates financial and carbon impact using specific policy rules, and enforcing budget constraints before deployment.
-
----
-
-## 🏗 Architecture
-
-The system follows a strict **Microservices DAG** architecture:
-
-1.  **Ingestion Service** (:8081): Parses Terraform Plan JSON (`configuration` aware).
-2.  **Semantic Engine** (:8082): Maps technical resources (`aws_instance`) to billable intents (Compute + Storage).
-3.  **Usage Engine** (:8083): Predicts usage metrics (`hours`, `gb_months`) based on heuristics/history.
-4.  **Pricing Engine** (:8084): FOCUS-compliant pricing lookup with Time-Travel semantics.
-5.  **Estimation Core** (:8085): Orchestrates the Cost Calculation DAG (Usage -> Price -> Cost).
-6.  **Policy Engine** (:8086): Enforces OPA policies and logs decisions to an Audit Trail.
-7.  **Budget Service** (:8087): Provides budget thresholds for governance.
-
----
-
-## 🚦 Production Readiness: The "Real" vs "Mock" List
-
-This system is architecturally correct but contains mocks for external dependencies to facilitate standalone testing. **Review this list before deploying.**
-
-### 1. Pricing Engine (`pricing-engine`)
-*   **⚠️ Mocked:** The `ClickHouseStore` does **not** connect to a real ClickHouse database. It generates valid SQL and returns stubbed data ("t3.medium" @ $0.0416).
-*   **Production Action:**
-    *   Deploy a real ClickHouse cluster.
-    *   Uncomment the `drive.Open` code in `storage/clickhouse.go`.
-    *   Ingest real AWS Price List API data into the DB.
-
-### 2. Usage Engine (`usage-engine`)
-*   **⚠️ Mocked:** The `Predict` function uses static heuristics (e.g., "730 hours" for EC2, "1 month" for EBS). It does NOT query Prometheus or CloudWatch.
-*   **Production Action:**
-    *   Integrate with a Metrics Store (Prometheus/Thanos).
-    *   Implement lookups map resource tags (`app-id`) to historical utilization.
-
-### 3. Budget Service (`budget-service`)
-*   **⚠️ Mocked:** Returns a hardcoded budget of `$1200` for every request.
-*   **Production Action:**
-    *   Connect to a real Financial planning system (Anaplan, Netsuite, or internally managed DB).
-    *   Implement logic to fetch budgets by `CostCenter` or `ProjectID`.
-
-### 4. Authentication (`pkg/platform/auth.go`)
-*   **⚠️ Mocked:** The system uses Basic Auth. In this MVP, it reads `AUTH_USER`/`AUTH_PASS` from env, but previous defaults were `admin/admin`.
-*   **Production Action:**
-    *   **MUST** configure `AUTH_USER` and `AUTH_PASS` in the environment.
-    *   Ideally, replace Basic Auth with **mTLS** or **OIDC/JWT** (Service-to-Service auth) for Kubernetes deployments.
-
-### 5. Dependency Resolution (`ingestion-service`)
-*   **✅ Implementation:** Uses explicit `depends_on` from Terraform Configuration.
-*   **Limit:** Does not yet infer implicit dependencies (e.g., reference ID matching) fully.
-
----
-
-## 🛠 How to Run
-
-### Prerequisites
-*   Go 1.23+
-*   Docker & Docker Compose (for OPA/Redis/Prometheus)
-
-### 1. Start Platform
-This will launch all 7 microservices + ClickHouse + OPA.
-```powershell
-docker-compose up --build
-```
-
-### 2. Run Analysis (CLI)
-The services are exposed on localhost ports (8081-8087).
-```bash
-# Generate Plan
-terraform init
-terraform plan -out=tfplan
-terraform show -json tfplan > tfplan.json
-
-# Analyze
-cd fiac-cli
-# Set Auth to match docker-compose environment
-export AUTH_USER=admin
-export AUTH_PASS=securepass123
-go run main.go --plan ../tfplan.json
-```
-
----
-
-## ✅ Safety Validation (Phase 4 & 6)
-To verify the **Fail-Closed** safety mechanisms:
-1.  **Semantic Failure**: Modify a `resource_type` to something unknown. -> System returns `INCOMPLETE` (0 Confidence).
-2.  **Pricing Failure**: Use an instance type with no price. -> System returns `INCOMPLETE`.
-3.  **Policy Block**: If `Confidence < 0.8` or `Incomplete == true`, the Policy Engine **REJECTS** the plan.
-
----
-
-## 📜 Audit Log
-Policy decisions are written to `policy_audit.log` in the root directory.
-Format: `JSON Lines` containing `{timestamp, input_hash, decision, violations}`.
-
-
-================================================================================
-FILE: run_services.ps1
-================================================================================
-
-# Start all microservices in background jobs
-Write-Host "Starting Services..."
-
-Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "ingestion-service/main.go"
-Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "semantic-engine/main.go"
-Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "usage-engine/main.go"
-Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "pricing-engine/main.go"
-Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "estimation-core/main.go"
-Start-Process -NoNewWindow -FilePath "go" -ArgumentList "run", "policy-engine/main.go"
-
-Write-Host "Services started! Waiting for health checks..."
-Start-Sleep -Seconds 5
-Write-Host "Ready to run CLI."
-
-
-================================================================================
-FILE: budget-service\go.mod
-================================================================================
-
-module github.com/futuristic-iac/budget-service
-
-go 1.23.0
-
-replace (
-	github.com/futuristic-iac/pkg/api => ../pkg/api
-	github.com/futuristic-iac/pkg/focus => ../pkg/focus
-	github.com/futuristic-iac/pkg/graph => ../pkg/graph
-	github.com/futuristic-iac/pkg/platform => ../pkg/platform
-	github.com/futuristic-iac/pkg/policy => ../pkg/policy
+require (
+	github.com/OneOfOne/xxhash v1.2.8 // indirect
+	github.com/agnivade/levenshtein v1.2.0 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/go-ini/ini v1.67.0 // indirect
+	github.com/go-logr/logr v1.4.2 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/prometheus/client_golang v1.20.5 // indirect
+	github.com/prometheus/client_model v0.6.1 // indirect
+	github.com/prometheus/common v0.55.0 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
+	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
+	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
+	github.com/yashtewari/glob-intersection v0.2.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	go.opentelemetry.io/otel v1.33.0 // indirect
+	go.opentelemetry.io/otel/metric v1.33.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.33.0 // indirect
+	go.opentelemetry.io/otel/trace v1.33.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	google.golang.org/protobuf v1.35.2 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
+--------------------------------------------------------------------------------
+FILE: go.sum
+--------------------------------------------------------------------------------
 
-================================================================================
-FILE: budget-service\main.go
-================================================================================
+github.com/OneOfOne/xxhash v1.2.8 h1:31czK/TI9sNkxIKfaUfGlU47BAxQ0ztGgd9vPyqimf8=
+github.com/OneOfOne/xxhash v1.2.8/go.mod h1:eZbhyaAYD41SGSSsnmcpxVoRiQ/MPUTjUdIIOT9Um7Q=
+github.com/agnivade/levenshtein v1.2.0 h1:U9L4IOT0Y3i0TIlUIDJ7rVUziKi/zPbrJGaFrtYH3SY=
+github.com/agnivade/levenshtein v1.2.0/go.mod h1:QVVI16kDrtSuwcpd0p1+xMC6Z/VfhtCyDIjcwga4/DU=
+github.com/arbovm/levenshtein v0.0.0-20160628152529-48b4e1c0c4d0 h1:jfIu9sQUG6Ig+0+Ap1h4unLjW6YQJpKZVmUzxsD4E/Q=
+github.com/arbovm/levenshtein v0.0.0-20160628152529-48b4e1c0c4d0/go.mod h1:t2tdKJDJF9BV14lnkjHmOQgcvEKgtqs5a1N3LNdJhGE=
+github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
+github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
+github.com/bytecodealliance/wasmtime-go/v3 v3.0.2 h1:3uZCA/BLTIu+DqCfguByNMJa2HVHpXvjfy0Dy7g6fuA=
+github.com/bytecodealliance/wasmtime-go/v3 v3.0.2/go.mod h1:RnUjnIXxEJcL6BgCvNyzCCRzZcxCgsZCi+RNlvYor5Q=
+github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
+github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
+github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
+github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
+github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
+github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
+github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
+github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
+github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/dgraph-io/badger/v3 v3.2103.5 h1:ylPa6qzbjYRQMU6jokoj4wzcaweHylt//CH0AKt0akg=
+github.com/dgraph-io/badger/v3 v3.2103.5/go.mod h1:4MPiseMeDQ3FNCYwRbbcBOGJLf5jsE0PPFzRiKjtcdw=
+github.com/dgraph-io/ristretto v0.1.1 h1:6CWw5tJNgpegArSHpNHJKldNeq03FQCwYvfMVWajOK8=
+github.com/dgraph-io/ristretto v0.1.1/go.mod h1:S1GPSBCYCIhmVNfcth17y2zZtQT6wzkzgwUve0VDWWA=
+github.com/dgryski/trifles v0.0.0-20230903005119-f50d829f2e54 h1:SG7nF6SRlWhcT7cNTs5R6Hk4V2lcmLz2NsG2VnInyNo=
+github.com/dgryski/trifles v0.0.0-20230903005119-f50d829f2e54/go.mod h1:if7Fbed8SFyPtHLHbg49SI7NAdJiC5WIA09pe59rfAA=
+github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4zYo=
+github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
+github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=
+github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
+github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
+github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHquHwclZch5g=
+github.com/foxcpp/go-mockdns v1.1.0 h1:jI0rD8M0wuYAxL7r/ynTrCQQq0BVqfB99Vgk7DlmewI=
+github.com/foxcpp/go-mockdns v1.1.0/go.mod h1:IhLeSFGed3mJIAXPH2aiRQB+kqz7oqu8ld2qVbOu7Wk=
+github.com/go-chi/chi/v5 v5.1.0 h1:acVI1TYaD+hhedDJ3r54HyA6sExp3HfXq7QWEEY/xMw=
+github.com/go-chi/chi/v5 v5.1.0/go.mod h1:DslCQbL2OYiznFReuXYUmQ2hGd1aDpCnlMNITLSKoi8=
+github.com/go-ini/ini v1.67.0 h1:z6ZrTEZqSWOTyH2FlglNbNgARyHG8oLW9gMELqKr06A=
+github.com/go-ini/ini v1.67.0/go.mod h1:ByCAeIL28uOIIG0E3PJtZPDL8WnHpFKFOtgjp+3Ies8=
+github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
+github.com/go-logr/logr v1.4.2 h1:6pFjapn8bFcIbiKo3XT4j/BhANplGihG6tvd+8rYgrY=
+github.com/go-logr/logr v1.4.2/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
+github.com/go-logr/stdr v1.2.2 h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=
+github.com/go-logr/stdr v1.2.2/go.mod h1:mMo/vtBO5dYbehREoey6XUKy/eSumjCCveDpRre4VKE=
+github.com/gobwas/glob v0.2.3 h1:A4xDbljILXROh+kObIiy5kIaPYD8e96x1tgBhUI5J+Y=
+github.com/gobwas/glob v0.2.3/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
+github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
+github.com/gogo/protobuf v1.3.2 h1:Ov1cvc58UF3b5XjBnZv7+opcTcQFZebYjWzi34vdm4Q=
+github.com/gogo/protobuf v1.3.2/go.mod h1:P1XiOD3dCwIKUDQYPy72D8LYyHL2YPYrpS2s69NZV8Q=
+github.com/golang/glog v1.2.2 h1:1+mZ9upx1Dh6FmUTFR1naJ77miKiXgALjWOZ3NVFPmY=
+github.com/golang/glog v1.2.2/go.mod h1:6AhwSGph0fcJtXVM/PEHPqZlFeoLxhs7/t5UDAwmO+w=
+github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da h1:oI5xCqsCo564l8iNU+DwB5epxmsaqB+rhGL0m5jtYqE=
+github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
+github.com/golang/protobuf v1.5.4 h1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek=
+github.com/golang/protobuf v1.5.4/go.mod h1:lnTiLA8Wa4RWRcIUkrtSVa5nRhsEGBg48fD6rSs7xps=
+github.com/golang/snappy v0.0.4 h1:yAGX7huGHXlcLOEtBnF4w7FQwA26wojNCwOYAEhLjQM=
+github.com/golang/snappy v0.0.4/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEWrmP2Q=
+github.com/google/flatbuffers v1.12.1 h1:MVlul7pQNoDzWRLTw5imwYsl+usrS1TXG2H4jg6ImGw=
+github.com/google/flatbuffers v1.12.1/go.mod h1:1AeVuKshWv4vARoZatz6mlQ0JxURH0Kv5+zNeJKJCa8=
+github.com/google/go-cmp v0.5.9/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
+github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
+github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
+github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
+github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
+github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.24.0 h1:TmHmbvxPmaegwhDubVz0lICL0J5Ka2vwTzhoePEXsGE=
+github.com/grpc-ecosystem/grpc-gateway/v2 v2.24.0/go.mod h1:qztMSjm835F2bXf+5HKAPIS5qsmQDqZna/PgVt4rWtI=
+github.com/klauspost/compress v1.17.9 h1:6KIumPrER1LHsvBVuDa0r5xaG0Es51mhhB9BQB2qeMA=
+github.com/klauspost/compress v1.17.9/go.mod h1:Di0epgTjJY877eYKx5yC51cX2A2Vl2ibi7bDH9ttBbw=
+github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
+github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
+github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
+github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
+github.com/mattn/go-colorable v0.1.13 h1:fFA4WZxdEF4tXPZVKMLwD8oUnCTTo08duU7wxecdEvA=
+github.com/mattn/go-colorable v0.1.13/go.mod h1:7S9/ev0klgBDR4GtXTXX8a3vIGJpMovkB8vQcUbaXHg=
+github.com/mattn/go-isatty v0.0.16/go.mod h1:kYGgaQfpe5nmfYZH+SKPsOc2e4SrIfOl2e/yFXSvRLM=
+github.com/mattn/go-isatty v0.0.19 h1:JITubQf0MOLdlGRuRq+jtsDlekdYPia9ZFsB8h/APPA=
+github.com/mattn/go-isatty v0.0.19/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
+github.com/miekg/dns v1.1.57 h1:Jzi7ApEIzwEPLHWRcafCN9LZSBbqQpxjt/wpgvg7wcM=
+github.com/miekg/dns v1.1.57/go.mod h1:uqRjCRUuEAA6qsOiJvDd+CFo/vW+y5WR6SNmHE55hZk=
+github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
+github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
+github.com/open-policy-agent/opa v1.0.0 h1:fZsEwxg1knpPvUn0YDJuJZBcbVg4G3zKpWa3+CnYK+I=
+github.com/open-policy-agent/opa v1.0.0/go.mod h1:+JyoH12I0+zqyC1iX7a2tmoQlipwAEGvOhVJMhmy+rM=
+github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
+github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
+github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/prometheus/client_golang v1.20.5 h1:cxppBPuYhUnsO6yo/aoRol4L7q7UFfdm+bR9r+8l63Y=
+github.com/prometheus/client_golang v1.20.5/go.mod h1:PIEt8X02hGcP8JWbeHyeZ53Y/jReSnHgO035n//V5WE=
+github.com/prometheus/client_model v0.6.1 h1:ZKSh/rekM+n3CeS952MLRAdFwIKqeY8b62p8ais2e9E=
+github.com/prometheus/client_model v0.6.1/go.mod h1:OrxVMOVHjw3lKMa8+x6HeMGkHMQyHDk9E3jmP2AmGiY=
+github.com/prometheus/common v0.55.0 h1:KEi6DK7lXW/m7Ig5i47x0vRzuBsHuvJdi5ee6Y3G1dc=
+github.com/prometheus/common v0.55.0/go.mod h1:2SECS4xJG1kd8XF9IcM1gMX6510RAEL65zxzNImwdc8=
+github.com/prometheus/procfs v0.15.1 h1:YagwOFzUgYfKKHX6Dr+sHT7km/hxC76UB0learggepc=
+github.com/prometheus/procfs v0.15.1/go.mod h1:fB45yRUv8NstnjriLhBQLuOUt+WW4BsoGhij/e3PBqk=
+github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 h1:MkV+77GLUNo5oJ0jf870itWm3D0Sjh7+Za9gazKc5LQ=
+github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
+github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=
+github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWNMNyH2VO9fmH0o=
+github.com/rs/xid v1.5.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
+github.com/rs/zerolog v1.33.0 h1:1cU2KZkvPxNyfgEmhHAz/1A9Bz+llsdYzklWFzgp0r8=
+github.com/rs/zerolog v1.33.0/go.mod h1:/7mN4D5sKwJLZQ2b/znpjC3/GQWY/xaDXUM0kKWRHss=
+github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ=
+github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
+github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
+github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
+github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/tchap/go-patricia/v2 v2.3.1 h1:6rQp39lgIYZ+MHmdEq4xzuk1t7OdC35z/xm0BGhTkes=
+github.com/tchap/go-patricia/v2 v2.3.1/go.mod h1:VZRHKAb53DLaG+nA9EaYYiaEx6YztwDlLElMsnSHD4k=
+github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb h1:zGWFAtiMcyryUHoUjUJX0/lt1H2+i2Ka2n+D3DImSNo=
+github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=
+github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 h1:EzJWgHovont7NscjpAxXsDA8S8BMYve8Y5+7cuRE7R0=
+github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415/go.mod h1:GwrjFmJcFw6At/Gs6z4yjiIwzuJ1/+UwLxMQDVQXShQ=
+github.com/yashtewari/glob-intersection v0.2.0 h1:8iuHdN88yYuCzCdjt0gDe+6bAhUwBeEWqThExu54RFg=
+github.com/yashtewari/glob-intersection v0.2.0/go.mod h1:LK7pIC3piUjovexikBbJ26Yml7g8xa5bsjfx2v1fwok=
+go.opencensus.io v0.24.0 h1:y73uSU6J157QMP2kn2r30vwW1A2W2WFwSCGnAVxeaD0=
+go.opencensus.io v0.24.0/go.mod h1:vNK8G9p7aAivkbmorf4v+7Hgx+Zs0yY+0fOtgBfjQKo=
+go.opentelemetry.io/auto/sdk v1.1.0 h1:cH53jehLUN6UFLY71z+NDOiNJqDdPRaXzTel0sJySYA=
+go.opentelemetry.io/auto/sdk v1.1.0/go.mod h1:3wSPjt5PWp2RhlCcmmOial7AvC4DQqZb7a7wCow3W8A=
+go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0 h1:yd02MEjBdJkG3uabWP9apV+OuWRIXGDuJEUJbOHmCFU=
+go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0/go.mod h1:umTcuxiv1n/s/S6/c2AT/g2CQ7u5C59sHDNmfSwgz7Q=
+go.opentelemetry.io/otel v1.33.0 h1:/FerN9bax5LoK51X/sI0SVYrjSE0/yUL7DpxW4K3FWw=
+go.opentelemetry.io/otel v1.33.0/go.mod h1:SUUkR6csvUQl+yjReHu5uM3EtVV7MBm5FHKRlNx4I8I=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.33.0 h1:Vh5HayB/0HHfOQA7Ctx69E/Y/DcQSMPpKANYVMQ7fBA=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.33.0/go.mod h1:cpgtDBaqD/6ok/UG0jT15/uKjAY8mRA53diogHBg3UI=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.33.0 h1:5pojmb1U1AogINhN3SurB+zm/nIcusopeBNp42f45QM=
+go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.33.0/go.mod h1:57gTHJSE5S1tqg+EKsLPlTWhpHMsWlVmer+LA926XiA=
+go.opentelemetry.io/otel/metric v1.33.0 h1:r+JOocAyeRVXD8lZpjdQjzMadVZp2M4WmQ+5WtEnklQ=
+go.opentelemetry.io/otel/metric v1.33.0/go.mod h1:L9+Fyctbp6HFTddIxClbQkjtubW6O9QS3Ann/M82u6M=
+go.opentelemetry.io/otel/sdk v1.33.0 h1:iax7M131HuAm9QkZotNHEfstof92xM+N8sr3uHXc2IM=
+go.opentelemetry.io/otel/sdk v1.33.0/go.mod h1:A1Q5oi7/9XaMlIWzPSxLRWOI8nG3FnzHJNbiENQuihM=
+go.opentelemetry.io/otel/trace v1.33.0 h1:cCJuF7LRjUFso9LPnEAHJDB2pqzp+hbO8eu1qqW2d/s=
+go.opentelemetry.io/otel/trace v1.33.0/go.mod h1:uIcdVUZMpTAmz0tI1z04GoVSezK37CbGV4fr1f2nBck=
+go.opentelemetry.io/proto/otlp v1.4.0 h1:TA9WRvW6zMwP+Ssb6fLoUIuirti1gGbP28GcKG1jgeg=
+go.opentelemetry.io/proto/otlp v1.4.0/go.mod h1:PPBWZIP98o2ElSqI35IHfu7hIhSwvc5N38Jw8pXuGFY=
+golang.org/x/mod v0.18.0 h1:5+9lSbEzPSdWkH32vYPBwEpX8KwDbM52Ud9xBUvNlb0=
+golang.org/x/mod v0.18.0/go.mod h1:hTbmBsO62+eylJbnUtE2MGJUyE7QWk4xUqPFrRgJ+7c=
+golang.org/x/net v0.33.0 h1:74SYHlV8BIgHIFC/LrYkOGIwL19eTYXQ5wc6TBuO36I=
+golang.org/x/net v0.33.0/go.mod h1:HXLR5J+9DxmrqMwG9qjGCxZ+zKXxBru04zlTvWlWuN4=
+golang.org/x/sync v0.10.0 h1:3NQrjDixjgGwUOCaF8w2+VYHv0Ve/vGYSbdkTa98gmQ=
+golang.org/x/sync v0.10.0/go.mod h1:Czt+wKu1gCyEFDUtn0jG5QVvpJ6rzVqr5aXyt9drQfk=
+golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.12.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+golang.org/x/sys v0.28.0 h1:Fksou7UEQUWlKvIdsqzJmUmCX3cZuD2+P3XyyzwMhlA=
+golang.org/x/sys v0.28.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+golang.org/x/text v0.21.0 h1:zyQAAkrwaneQ066sspRyJaG9VNi/YJ1NfzcGB3hZ/qo=
+golang.org/x/text v0.21.0/go.mod h1:4IBbMaMmOPCJ8SecivzSH54+73PCFmPWxNTLm+vZkEQ=
+golang.org/x/tools v0.22.0 h1:gqSGLZqv+AI9lIQzniJ0nZDRG5GBPsSi+DRNHWNz6yA=
+golang.org/x/tools v0.22.0/go.mod h1:aCwcsjqvq7Yqt6TNyX7QMU2enbQ/Gt0bo6krSeEri+c=
+google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576 h1:CkkIfIt50+lT6NHAVoRYEyAvQGFM7xEwXUUywFvEb3Q=
+google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576/go.mod h1:1R3kvZ1dtP3+4p4d3G8uJ8rFk/fWlScl38vanWACI08=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20241209162323-e6fa225c2576 h1:8ZmaLZE4XWrtU3MyClkYqqtl6Oegr3235h7jxsDyqCY=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20241209162323-e6fa225c2576/go.mod h1:5uTbfoYQed2U9p3KIj2/Zzm02PYhndfdmML0qC3q3FU=
+google.golang.org/grpc v1.69.2 h1:U3S9QEtbXC0bYNvRtcoklF3xGtLViumSYxWykJS+7AU=
+google.golang.org/grpc v1.69.2/go.mod h1:vyjdE6jLBI76dgpDojsFGNaHlxdjXN9ghpnd2o7JGZ4=
+google.golang.org/protobuf v1.35.2 h1:8Ar7bF+apOIoThw1EdZl0p1oWvMqTHmpA2fRTyZO8io=
+google.golang.org/protobuf v1.35.2/go.mod h1:9fA7Ob0pmnwhb644+1+CVWFRbNajQ6iRojtC/QF5bRE=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
+gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
+gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+sigs.k8s.io/yaml v1.4.0 h1:Mk1wCc2gy/F0THH0TAp1QYyJNzRm2KCLy3o5ASXVI5E=
+sigs.k8s.io/yaml v1.4.0/go.mod h1:Ejl7/uTz7PSA4eKMyQCUTnhZYNmLIl+5c2lQPGR2BPY=
 
-package main
+--------------------------------------------------------------------------------
+FILE: internal\carbon\intensity.go
+--------------------------------------------------------------------------------
+
+// Package carbon provides carbon footprint modeling.
+package carbon
+
+// RegionIntensity returns carbon intensity for a cloud region.
+// Values are in gCO2e per kWh.
+func RegionIntensity(provider, region string) float64 {
+	// AWS region carbon intensities (approximate, 2024 data)
+	awsIntensities := map[string]float64{
+		"us-east-1":      383.0,  // Virginia
+		"us-east-2":      425.0,  // Ohio
+		"us-west-1":      233.0,  // N. California
+		"us-west-2":      78.0,   // Oregon (hydro)
+		"eu-west-1":      316.0,  // Ireland
+		"eu-west-2":      228.0,  // London
+		"eu-west-3":      51.0,   // Paris (nuclear)
+		"eu-central-1":   338.0,  // Frankfurt
+		"eu-north-1":     8.0,    // Stockholm (hydro)
+		"ap-northeast-1": 471.0,  // Tokyo
+		"ap-southeast-1": 408.0,  // Singapore
+		"ap-southeast-2": 656.0,  // Sydney
+		"ap-south-1":     708.0,  // Mumbai
+		"sa-east-1":      74.0,   // SÃ£o Paulo
+		"ca-central-1":   120.0,  // Montreal
+	}
+
+	if provider == "aws" || provider == "" {
+		if intensity, ok := awsIntensities[region]; ok {
+			return intensity
+		}
+	}
+
+	// Default to US average
+	return 400.0
+}
+
+// ComputeCarbon calculates carbon footprint for compute resources.
+type ComputeCarbon struct {
+	Region      string
+	InstanceType string
+	Hours       float64
+}
+
+// EstimateKgCO2e returns estimated carbon in kg CO2e.
+func (c *ComputeCarbon) EstimateKgCO2e() float64 {
+	// Power consumption estimates by instance size (Watts)
+	powerWatts := instancePowerConsumption(c.InstanceType)
+	
+	// Convert to kWh
+	kWh := (powerWatts * c.Hours) / 1000.0
+	
+	// Apply regional carbon intensity
+	intensity := RegionIntensity("aws", c.Region)
+	gCO2e := kWh * intensity
+	
+	// Convert to kg
+	return gCO2e / 1000.0
+}
+
+func instancePowerConsumption(instanceType string) float64 {
+	// Approximate power consumption by instance family
+	powerByFamily := map[string]float64{
+		"t3":  10.0,   // Burstable
+		"t2":  8.0,
+		"m5":  35.0,   // General purpose
+		"m6i": 40.0,
+		"c5":  45.0,   // Compute optimized
+		"c6i": 50.0,
+		"r5":  55.0,   // Memory optimized
+		"r6i": 60.0,
+		"i3":  80.0,   // Storage optimized
+		"p3":  300.0,  // GPU
+		"p4":  400.0,
+	}
+
+	// Extract family from instance type (e.g., "t3.medium" -> "t3")
+	for family, power := range powerByFamily {
+		if len(instanceType) >= len(family) && instanceType[:len(family)] == family {
+			// Adjust by size
+			return power * sizeMultiplier(instanceType)
+		}
+	}
+
+	return 20.0 // Default
+}
+
+func sizeMultiplier(instanceType string) float64 {
+	sizes := map[string]float64{
+		"nano":    0.25,
+		"micro":   0.5,
+		"small":   0.75,
+		"medium":  1.0,
+		"large":   2.0,
+		"xlarge":  4.0,
+		"2xlarge": 8.0,
+		"4xlarge": 16.0,
+		"8xlarge": 32.0,
+	}
+
+	for size, mult := range sizes {
+		if len(instanceType) > len(size) && instanceType[len(instanceType)-len(size):] == size {
+			return mult
+		}
+	}
+
+	return 1.0
+}
+
+// StorageCarbon calculates carbon for storage.
+type StorageCarbon struct {
+	Region     string
+	GBMonths   float64
+	VolumeType string
+}
+
+// EstimateKgCO2e returns estimated carbon for storage.
+func (s *StorageCarbon) EstimateKgCO2e() float64 {
+	// Storage has relatively low direct carbon
+	// Approximately 0.0001 kWh per GB-month
+	kWh := s.GBMonths * 0.0001
+	intensity := RegionIntensity("aws", s.Region)
+	gCO2e := kWh * intensity
+	return gCO2e / 1000.0
+}
+
+--------------------------------------------------------------------------------
+FILE: internal\estimation\calculator.go
+--------------------------------------------------------------------------------
+
+// Package estimation provides cost and carbon estimation.
+package estimation
 
 import (
-	"encoding/json"
-	"log"
-	"net/http"
+	"sort"
+
+	"github.com/santoshpalla27/fiac-platform/internal/carbon"
+	"github.com/santoshpalla27/fiac-platform/internal/pricing"
+	"github.com/santoshpalla27/fiac-platform/pkg/api"
+	"github.com/santoshpalla27/fiac-platform/pkg/confidence"
 )
 
-func main() {
-	http.HandleFunc("/budget", handleGetBudget)
+// Calculator combines semantics, usage, and pricing into estimates.
+type Calculator struct{}
 
-	port := ":8087"
-	log.Printf("Budget API (Mock) starting on %s", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
+// Result is the estimation output.
+type Result struct {
+	TotalCost       api.CostRange         `json:"total_cost"`
+	TotalCarbon     api.CarbonEstimate    `json:"total_carbon"`
+	Drivers         []api.CostDriver      `json:"drivers"`
+	ConfidenceScore float64               `json:"confidence_score"`
+	IsIncomplete    bool                  `json:"is_incomplete"`
+	Errors          []api.EstimationError `json:"errors,omitempty"`
+	Lineage         []api.LineageItem     `json:"lineage,omitempty"`
+}
+
+func NewCalculator() *Calculator { return &Calculator{} }
+
+func (c *Calculator) Calculate(req api.EstimateRequest) (*Result, error) {
+	return &Result{
+		TotalCost:    api.CostRange{Currency: "USD"},
+		IsIncomplete: true,
+	}, nil
+}
+
+func (c *Calculator) CalculateFromComponents(
+	semantics *api.SemanticResult,
+	usage *api.UsageResult,
+	prices *pricing.PriceResult,
+) (*Result, error) {
+	result := &Result{
+		TotalCost: api.CostRange{Currency: "USD"},
+		Drivers:   []api.CostDriver{},
+		Lineage:   []api.LineageItem{},
+		Errors:    []api.EstimationError{},
+	}
+
+	if len(semantics.MappingErrors) > 0 {
+		result.IsIncomplete = true
+		for _, err := range semantics.MappingErrors {
+			result.Errors = append(result.Errors, api.EstimationError{
+				Code: err.Code, Message: err.Message, Recoverable: err.Recoverable,
+			})
+		}
+		return result, nil
+	}
+
+	usageMap := make(map[string]api.UsagePrediction)
+	for _, p := range usage.Predictions {
+		usageMap[p.ComponentID] = p
+	}
+	priceMap := make(map[string]pricing.ResolvedPrice)
+	for _, p := range prices.Prices {
+		priceMap[p.ComponentID] = p
+	}
+
+	var confidences []float64
+	var totalP50, totalP90, totalCarbon float64
+
+	for _, comp := range semantics.Components {
+		u, hasU := usageMap[comp.ID]
+		p, hasP := priceMap[comp.ID]
+		if !hasU || !hasP {
+			continue
+		}
+
+		p50Cost := u.P50 * p.PricePerUnit
+		p90Cost := u.P90 * p.PricePerUnit
+		totalP50 += p50Cost
+		totalP90 += p90Cost
+		totalCarbon += u.P50 * p.CarbonIntensity
+		confidences = append(confidences, u.Confidence)
+
+		result.Lineage = append(result.Lineage, api.LineageItem{
+			ResourceID: comp.ResourceID, Component: string(comp.Type),
+			SKU: p.SKUID, Price: p.PricePerUnit, Unit: p.Unit,
+			Quantity: u.P50, MonthlyCost: p50Cost, Explanation: p.Explanation,
+		})
+	}
+
+	result.TotalCost.P50, result.TotalCost.P90 = totalP50, totalP90
+	result.TotalCarbon.KgCO2e = totalCarbon
+	if len(confidences) > 0 {
+		result.ConfidenceScore = confidence.Aggregate(confidences)
+	}
+	result.Drivers = c.extractDrivers(result.Lineage, totalP50)
+	return result, nil
+}
+
+func (c *Calculator) extractDrivers(lineage []api.LineageItem, total float64) []api.CostDriver {
+	if total == 0 {
+		return nil
+	}
+	costs := make(map[string]float64)
+	for _, item := range lineage {
+		costs[item.ResourceID] += item.MonthlyCost
+	}
+	var drivers []api.CostDriver
+	for id, cost := range costs {
+		drivers = append(drivers, api.CostDriver{
+			ResourceID: id, Name: id, MonthlyCost: cost, Percentage: (cost / total) * 100,
+		})
+	}
+	sort.Slice(drivers, func(i, j int) bool { return drivers[i].MonthlyCost > drivers[j].MonthlyCost })
+	if len(drivers) > 5 {
+		drivers = drivers[:5]
+	}
+	return drivers
+}
+
+func (c *Calculator) EstimateCarbon(region string, hours, gbMonths float64) api.CarbonEstimate {
+	compute := carbon.ComputeCarbon{Region: region, Hours: hours}
+	storage := carbon.StorageCarbon{Region: region, GBMonths: gbMonths}
+	return api.CarbonEstimate{
+		KgCO2e: compute.EstimateKgCO2e() + storage.EstimateKgCO2e(),
+		Confidence: 0.7, Region: region,
 	}
 }
 
-type BudgetResponse struct {
-	TotalBudget float64  `json:"total_budget"`
-	Currency    string   `json:"currency"`
-	Tags        []string `json:"tags"`
-}
+--------------------------------------------------------------------------------
+FILE: internal\graph\parser.go
+--------------------------------------------------------------------------------
 
-func handleGetBudget(w http.ResponseWriter, r *http.Request) {
-	// Mock: Always return $1200 for now.
-	// In reality, this would query a DB based on Project ID.
-	resp := BudgetResponse{
-		TotalBudget: 1200.0,
-		Currency:    "USD",
-		Tags:        []string{"prod", "aws"},
-	}
-	
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
-}
-
-
-================================================================================
-FILE: estimation-core\go.mod
-================================================================================
-
-module github.com/futuristic-iac/estimation-core
-
-go 1.23.0
-replace (
-github.com/futuristic-iac/pkg/api => ../pkg/api
-github.com/futuristic-iac/pkg/focus => ../pkg/focus
-github.com/futuristic-iac/pkg/graph => ../pkg/graph
-github.com/futuristic-iac/pkg/platform => ../pkg/platform
-github.com/futuristic-iac/pkg/policy => ../pkg/policy
-)
-
-
-================================================================================
-FILE: estimation-core\main.go
-================================================================================
-
-package main
-
-import (
-	"encoding/json"
-	"io"
-	"log"
-	"net/http"
-
-	"github.com/futuristic-iac/estimation-core/service"
-	"github.com/futuristic-iac/pkg/api"
-	"github.com/futuristic-iac/pkg/platform"
-)
-
-func main() {
-	// Initialize Shared Platform Components
-	logger := platform.InitLogger()
-	
-	usageURL := platform.GetEnv("USAGE_URL", "http://localhost:8083/forecast")
-	pricingURL := platform.GetEnv("PRICING_URL", "http://localhost:8084/price")
-	
-	estimator := service.NewEstimator(usageURL, pricingURL)
-
-	http.HandleFunc("/estimate", platform.BasicAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Failed to read body", http.StatusInternalServerError)
-			return
-		}
-		defer r.Body.Close()
-
-		var components []api.BillingComponent
-		if err := json.Unmarshal(body, &components); err != nil {
-			http.Error(w, "Invalid input JSON", http.StatusBadRequest)
-			return
-		}
-
-		result, err := estimator.Estimate(components)
-		if err != nil {
-			logger.Error("Estimation failed", "error", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(result)
-	}))
-
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-
-	port := platform.GetEnv("PORT", ":8085")
-	logger.Info("Estimation Core starting", "port", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
-		platform.LogFatal(logger, "Server failed", err)
-	}
-}
-
-
-================================================================================
-FILE: estimation-core\service\estimator.go
-================================================================================
-
-package service
+// Package graph provides Terraform plan parsing and infrastructure graph building.
+package graph
 
 import (
 	"encoding/json"
 	"fmt"
-	"bytes"
-	"net/http"
-	"time"
+	"strings"
 
-	"github.com/futuristic-iac/pkg/api"
-	"github.com/futuristic-iac/pkg/focus"
-	"github.com/futuristic-iac/pkg/platform"
+	"github.com/santoshpalla27/fiac-platform/pkg/api"
 )
 
-// Estimator orchestrates the pricing and usage data to form a Cost DAG.
-type Estimator struct {
-	UsageURL   string
-	PricingURL string
-	Client     *platform.HTTPClient
+// TerraformPlan represents the structure of terraform show -json output.
+type TerraformPlan struct {
+	FormatVersion    string                 `json:"format_version"`
+	TerraformVersion string                 `json:"terraform_version"`
+	PlannedValues    PlannedValues          `json:"planned_values"`
+	ResourceChanges  []ResourceChange       `json:"resource_changes"`
+	Configuration    map[string]interface{} `json:"configuration"`
+	PriorState       *PriorState            `json:"prior_state,omitempty"`
 }
 
-func NewEstimator(usageURL, pricingURL string) *Estimator {
-	return &Estimator{
-		UsageURL:   usageURL,
-		PricingURL: pricingURL,
-		Client:     platform.NewHTTPClient(3, 2*time.Second), // 3 retries, 2s timeout
+// PlannedValues contains the planned infrastructure state.
+type PlannedValues struct {
+	RootModule Module `json:"root_module"`
+}
+
+// Module represents a Terraform module.
+type Module struct {
+	Resources    []PlannedResource `json:"resources"`
+	ChildModules []Module          `json:"child_modules,omitempty"`
+}
+
+// PlannedResource represents a planned resource.
+type PlannedResource struct {
+	Address       string                 `json:"address"`
+	Type          string                 `json:"type"`
+	Name          string                 `json:"name"`
+	ProviderName  string                 `json:"provider_name"`
+	SchemaVersion int                    `json:"schema_version"`
+	Values        map[string]interface{} `json:"values"`
+}
+
+// ResourceChange represents a change to a resource.
+type ResourceChange struct {
+	Address      string   `json:"address"`
+	Type         string   `json:"type"`
+	Name         string   `json:"name"`
+	ProviderName string   `json:"provider_name"`
+	Change       Change   `json:"change"`
+}
+
+// Change represents the before/after of a resource change.
+type Change struct {
+	Actions []string               `json:"actions"`
+	Before  map[string]interface{} `json:"before"`
+	After   map[string]interface{} `json:"after"`
+}
+
+// PriorState represents existing infrastructure state.
+type PriorState struct {
+	Values PlannedValues `json:"values"`
+}
+
+// ParseTerraformPlan parses JSON plan data into an infrastructure graph.
+func ParseTerraformPlan(planData []byte) (*api.InfrastructureGraph, error) {
+	var plan TerraformPlan
+	if err := json.Unmarshal(planData, &plan); err != nil {
+		return nil, fmt.Errorf("failed to parse terraform plan JSON: %w", err)
+	}
+
+	graph := &api.InfrastructureGraph{
+		Nodes: []api.ResourceNode{},
+		Edges: []api.Dependency{},
+	}
+
+	// Extract provider context from first resource
+	if len(plan.ResourceChanges) > 0 {
+		graph.ProviderContext = extractProviderContext(plan.ResourceChanges[0])
+	}
+
+	// Process resource changes
+	for _, rc := range plan.ResourceChanges {
+		node := buildResourceNode(rc)
+		graph.Nodes = append(graph.Nodes, node)
+	}
+
+	// Extract dependencies from configuration references
+	graph.Edges = extractDependencies(plan, graph.Nodes)
+
+	return graph, nil
+}
+
+func extractProviderContext(rc ResourceChange) api.ProviderContext {
+	provider := "aws" // default
+	region := "us-east-1" // default
+
+	// Extract provider from provider_name (e.g., "registry.terraform.io/hashicorp/aws")
+	parts := strings.Split(rc.ProviderName, "/")
+	if len(parts) > 0 {
+		provider = parts[len(parts)-1]
+	}
+
+	// Try to extract region from resource attributes
+	if rc.Change.After != nil {
+		if r, ok := rc.Change.After["region"].(string); ok && r != "" {
+			region = r
+		}
+		// For AWS resources, check availability_zone
+		if az, ok := rc.Change.After["availability_zone"].(string); ok && az != "" {
+			// Extract region from AZ (e.g., "us-west-2a" -> "us-west-2")
+			if len(az) > 1 {
+				region = az[:len(az)-1]
+			}
+		}
+	}
+
+	return api.ProviderContext{
+		Provider: provider,
+		Region:   region,
 	}
 }
 
-func (e *Estimator) Estimate(components []api.BillingComponent) (*api.EstimationResult, error) {
-	result := &api.EstimationResult{
-		TotalMonthlyCost: struct {
-			P50 float64 `json:"p50"`
-			P90 float64 `json:"p90"`
-		}{0, 0},
-		Carbon: struct {
-			KgCO2e          float64 `json:"kgco2e"`
-			RegionIntensity string  `json:"region_intensity"`
-		}{0, "medium"},
-		Drivers:        []api.CostDriver{},
-		DetailedErrors: []api.EstimationError{},
-		Errors:         []string{}, // Backward comp
+func buildResourceNode(rc ResourceChange) api.ResourceNode {
+	// Determine change action
+	action := api.ChangeActionNoOp
+	if len(rc.Change.Actions) > 0 {
+		switch rc.Change.Actions[0] {
+		case "create":
+			action = api.ChangeActionCreate
+		case "update":
+			action = api.ChangeActionUpdate
+		case "delete":
+			action = api.ChangeActionDelete
+		case "replace":
+			action = api.ChangeActionReplace
+		}
+		// Handle create-then-destroy and similar combinations
+		if len(rc.Change.Actions) > 1 {
+			action = api.ChangeActionReplace
+		}
 	}
 
-	globalConfidence := 1.0
-	isIncomplete := false
-
-	// --- STAGE 1: Resolution & Data Gathering ---
-	type ResolvedComponent struct {
-		Component api.BillingComponent
-		Forecast  *api.UsageForecast
-		Price     *focus.PricingItem
+	// Use "after" values for creates/updates, "before" for deletes
+	attributes := rc.Change.After
+	if action == api.ChangeActionDelete {
+		attributes = rc.Change.Before
 	}
-	
-	resolved := []ResolvedComponent{}
+	if attributes == nil {
+		attributes = make(map[string]interface{})
+	}
+
+	return api.ResourceNode{
+		ID:           rc.Address,
+		Type:         rc.Type,
+		Name:         rc.Name,
+		Provider:     extractProvider(rc.ProviderName),
+		Attributes:   attributes,
+		ChangeAction: action,
+	}
+}
+
+func extractProvider(providerName string) string {
+	parts := strings.Split(providerName, "/")
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
+	}
+	return providerName
+}
+
+func extractDependencies(plan TerraformPlan, nodes []api.ResourceNode) []api.Dependency {
+	deps := []api.Dependency{}
+	nodeIDs := make(map[string]bool)
+	for _, n := range nodes {
+		nodeIDs[n.ID] = true
+	}
+
+	// Simple dependency extraction from attribute references
+	for _, node := range nodes {
+		for _, value := range node.Attributes {
+			if strVal, ok := value.(string); ok {
+				// Check if this value references another resource
+				for otherID := range nodeIDs {
+					if otherID != node.ID && strings.Contains(strVal, otherID) {
+						deps = append(deps, api.Dependency{
+							FromID: node.ID,
+							ToID:   otherID,
+							Type:   api.DependencyTypeReference,
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return deps
+}
+
+--------------------------------------------------------------------------------
+FILE: internal\policy\evaluator.go
+--------------------------------------------------------------------------------
+
+// Package policy provides OPA policy evaluation.
+package policy
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/open-policy-agent/opa/rego"
+	"github.com/santoshpalla27/fiac-platform/internal/estimation"
+)
+
+// Result holds policy evaluation outcomes.
+type Result struct {
+	Denials  []string `json:"denials"`
+	Warnings []string `json:"warnings"`
+	Passed   bool     `json:"passed"`
+}
+
+// Evaluator runs OPA policies against estimation results.
+type Evaluator struct {
+	policiesDir string
+}
+
+func NewEvaluator(policiesDir string) *Evaluator {
+	return &Evaluator{policiesDir: policiesDir}
+}
+
+func (e *Evaluator) Evaluate(est *estimation.Result) (*Result, error) {
+	result := &Result{Denials: []string{}, Warnings: []string{}, Passed: true}
+
+	input := map[string]any{
+		"total_cost_p50":      est.TotalCost.P50,
+		"total_cost_p90":      est.TotalCost.P90,
+		"carbon_kg":           est.TotalCarbon.KgCO2e,
+		"confidence_score":    est.ConfidenceScore,
+		"is_incomplete":       est.IsIncomplete,
+		"cost_growth_percent": 0.0,
+	}
+
+	files, err := filepath.Glob(filepath.Join(e.policiesDir, "*.rego"))
+	if err != nil || len(files) == 0 {
+		return result, nil
+	}
+
+	for _, file := range files {
+		policy, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+
+		denials, err := e.evalQuery(string(policy), "data.fiac.deny", input)
+		if err == nil {
+			result.Denials = append(result.Denials, denials...)
+		}
+
+		warnings, err := e.evalQuery(string(policy), "data.fiac.warn", input)
+		if err == nil {
+			result.Warnings = append(result.Warnings, warnings...)
+		}
+	}
+
+	result.Passed = len(result.Denials) == 0
+	return result, nil
+}
+
+func (e *Evaluator) evalQuery(policy, query string, input map[string]any) ([]string, error) {
+	ctx := context.Background()
+	r := rego.New(
+		rego.Query(query),
+		rego.Module("policy.rego", policy),
+		rego.Input(input),
+	)
+
+	rs, err := r.Eval(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var messages []string
+	for _, result := range rs {
+		for _, expr := range result.Expressions {
+			if set, ok := expr.Value.([]interface{}); ok {
+				for _, v := range set {
+					if msg, ok := v.(string); ok {
+						messages = append(messages, msg)
+					}
+				}
+			}
+		}
+	}
+	return messages, nil
+}
+
+func (e *Evaluator) ValidatePolicies() error {
+	files, err := filepath.Glob(filepath.Join(e.policiesDir, "*.rego"))
+	if err != nil {
+		return fmt.Errorf("failed to list policies: %w", err)
+	}
+	for _, file := range files {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", file, err)
+		}
+		_, err = rego.New(rego.Module(file, string(content))).PrepareForEval(context.Background())
+		if err != nil {
+			return fmt.Errorf("invalid policy %s: %w", file, err)
+		}
+	}
+	return nil
+}
+
+--------------------------------------------------------------------------------
+FILE: internal\pricing\resolver.go
+--------------------------------------------------------------------------------
+
+// Package pricing provides SKU price resolution with carbon intensity.
+package pricing
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/santoshpalla27/fiac-platform/pkg/api"
+)
+
+// PriceEntry represents a pricing record.
+type PriceEntry struct {
+	SKUID           string
+	Provider        string
+	Region          string
+	ResourceType    string
+	Unit            string
+	PricePerUnit    float64
+	EffectiveDate   time.Time
+	CarbonIntensity float64 // gCO2e per unit
+	Attributes      map[string]string
+}
+
+// PriceResult holds resolved prices.
+type PriceResult struct {
+	Prices   []ResolvedPrice `json:"prices"`
+	Warnings []string        `json:"warnings,omitempty"`
+}
+
+// ResolvedPrice represents a matched price.
+type ResolvedPrice struct {
+	ComponentID     string  `json:"component_id"`
+	SKUID           string  `json:"sku_id"`
+	PricePerUnit    float64 `json:"price_per_unit"`
+	Unit            string  `json:"unit"`
+	CarbonIntensity float64 `json:"carbon_intensity"`
+	Explanation     string  `json:"explanation"`
+}
+
+// Resolver matches billing components to prices.
+type Resolver struct {
+	store *PriceStore
+}
+
+// NewResolver creates a price resolver with stub data.
+func NewResolver() *Resolver {
+	return &Resolver{
+		store: NewPriceStore(),
+	}
+}
+
+// Resolve finds prices for billing components.
+func (r *Resolver) Resolve(components []api.BillingComponent, region string, effectiveDate *string) (*PriceResult, error) {
+	result := &PriceResult{
+		Prices:   []ResolvedPrice{},
+		Warnings: []string{},
+	}
 
 	for _, comp := range components {
-		rc := ResolvedComponent{Component: comp}
-
-		// 0. Check Semantic Mapping vs Policy
-		if comp.MappingError != "" {
-			err := api.EstimationError{
-				Component: comp.ResourceAddress,
-				Severity:  api.SeverityCritical, // Semantic failure is critical
-				Message:   fmt.Sprintf("Mapping Failed: %s", comp.MappingError),
-			}
-			result.DetailedErrors = append(result.DetailedErrors, err)
-			result.Errors = append(result.Errors, err.Message)
-			isIncomplete = true
-			globalConfidence *= 0.0 // Invalidates confidence
-			continue
-		}
-
-		// 1. Usage Resolution
-		forecast, err := e.getUsageForecast(comp)
+		price, err := r.resolveComponent(comp, region)
 		if err != nil {
-			estErr := api.EstimationError{
-				Component: comp.ResourceAddress,
-				Severity:  api.SeverityCritical,
-				Message:   fmt.Sprintf("Usage Forecast Failed: %v", err),
-			}
-			result.DetailedErrors = append(result.DetailedErrors, estErr)
-			result.Errors = append(result.Errors, estErr.Message)
-			isIncomplete = true
-			globalConfidence *= 0.5
+			result.Warnings = append(result.Warnings, 
+				fmt.Sprintf("Price not found for %s: %s", comp.ID, err.Error()))
 			continue
 		}
-		rc.Forecast = forecast
-		globalConfidence *= forecast.Confidence
-
-		// 2. Pricing Resolution
-		price, err := e.getPrice(comp)
-		if err != nil {
-			var sev string = api.SeverityCritical
-			// If Component says "usage_type: free_tier" maybe warning? 
-			// For now, treat missing price as critical.
-			
-			estErr := api.EstimationError{
-				Component: comp.ResourceAddress,
-				Severity:  sev,
-				Message:   fmt.Sprintf("Pricing Lookup Failed: %v", err),
-			}
-			result.DetailedErrors = append(result.DetailedErrors, estErr)
-			result.Errors = append(result.Errors, estErr.Message)
-			
-			// Add 0-cost driver so it appears in list
-			result.Drivers = append(result.Drivers, api.CostDriver{
-				Component: comp.ResourceAddress,
-				Reason:    "Price Missing",
-				P50Cost:   0, P90Cost: 0,
-			})
-			
-			isIncomplete = true
-			globalConfidence *= 0.5 // Heavy penalty
-			continue
-		}
-		rc.Price = price
-		
-		resolved = append(resolved, rc)
-	}
-
-	// --- STAGE 2: Cost Calculation ---
-	for _, rc := range resolved {
-		comp := rc.Component
-		forecast := rc.Forecast
-		price := rc.Price
-
-		units := forecast.MonthlyForecast.P50
-		unitLabel := "units"
-
-		// Unit Normalization Logic
-		if price.Unit == "GB-Mo" {
-			sizeStr, ok := comp.LookupAttributes["size_gb"]
-			if !ok {
-				estErr := api.EstimationError{
-					Component: comp.ResourceAddress,
-					Severity:  api.SeverityCritical,
-					Message:   "GB-Mo price requires size_gb attribute",
-				}
-				result.DetailedErrors = append(result.DetailedErrors, estErr)
-				result.Errors = append(result.Errors, estErr.Message)
-				isIncomplete = true
-				continue
-			}
-			var size float64
-			fmt.Sscanf(sizeStr, "%f", &size)
-			months := forecast.MonthlyForecast.P50 / 730.0
-			units = size * months
-			unitLabel = fmt.Sprintf("GB-Mo (%.1f GB * %.1f Mo)", size, months)
-		} else if price.Unit == "Hrs" || price.Unit == "Hrs" {
-			unitLabel = "Hrs"
-		}
-
-		p50Cost := price.PricePerUnit * units
-		p90Cost := price.PricePerUnit * (units * (forecast.MonthlyForecast.P90 / forecast.MonthlyForecast.P50))
-
-		driver := api.CostDriver{
-			Component: comp.ResourceAddress,
-			Reason:    fmt.Sprintf("%s (%s)", comp.UsageType, price.SkuID),
-			P50Cost:   p50Cost,
-			P90Cost:   p90Cost,
-			Formula:   fmt.Sprintf("%.2f %s * $%.4f", units, unitLabel, price.PricePerUnit),
-		}
-
-		result.Drivers = append(result.Drivers, driver)
-		result.TotalMonthlyCost.P50 += p50Cost
-		result.TotalMonthlyCost.P90 += p90Cost
-		
-		// Carbon
-		carbon := price.CarbonIntensity * forecast.MonthlyForecast.P50 // gCO2e
-		result.Carbon.KgCO2e += carbon / 1000.0
-	}
-	
-	result.IsIncomplete = isIncomplete
-	result.ConfidenceScore = globalConfidence
-	
-	result.IsIncomplete = isIncomplete
-	result.ConfidenceScore = globalConfidence
-	
-	// CRITICAL CHECK: If any critical error exists, Confidence = 0.0
-	for _, e := range result.DetailedErrors {
-		if e.Severity == api.SeverityCritical {
-			result.ConfidenceScore = 0.0
-			break
-		}
-	}
-
-	// Fail-Closed Aggregation: If incomplete, totals must be 0 to prevent downstream misuse.
-	if result.IsIncomplete {
-		result.TotalMonthlyCost.P50 = 0
-		result.TotalMonthlyCost.P90 = 0
-		result.Carbon.KgCO2e = 0
+		result.Prices = append(result.Prices, price)
 	}
 
 	return result, nil
 }
 
-func (e *Estimator) getUsageForecast(comp api.BillingComponent) (*api.UsageForecast, error) {
-	req := api.UsageForecastRequest{
-		Component: comp,
-	}
-	body, _ := json.Marshal(req)
+func (r *Resolver) resolveComponent(comp api.BillingComponent, region string) (ResolvedPrice, error) {
+	// Build SKU lookup key
+	skuKey := r.buildSKUKey(comp)
 	
-	resp, err := e.Client.PostJSON(e.UsageURL, body)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("usage service error: %d", resp.StatusCode)
-	}
-	
-	var f api.UsageForecast
-	if err := json.NewDecoder(resp.Body).Decode(&f); err != nil {
-		return nil, err
-	}
-	return &f, nil
-}
-
-func (e *Estimator) getPrice(comp api.BillingComponent) (*focus.PricingItem, error) {
-	req := struct {
-		Provider   string            `json:"provider"`
-		Attributes map[string]string `json:"attributes"`
-		Timestamp  string            `json:"timestamp"`
-	}{
-		Provider:   comp.Provider,
-		Attributes: comp.LookupAttributes,
-		Timestamp:  time.Now().Format(time.RFC3339),
-	}
-	
-	body, _ := json.Marshal(req)
-	resp, err := e.Client.PostJSON(e.PricingURL, body)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("pricing service error: %d", resp.StatusCode)
-	}
-	
-	var p focus.PricingItem
-	if err := json.NewDecoder(resp.Body).Decode(&p); err != nil {
-		return nil, err
-	}
-	return &p, nil
-}
-
-
-================================================================================
-FILE: fiac-cli\go.mod
-================================================================================
-
-module github.com/futuristic-iac/fiac-cli
-
-go 1.23.0
-replace (
-github.com/futuristic-iac/pkg/api => ../pkg/api
-github.com/futuristic-iac/pkg/focus => ../pkg/focus
-github.com/futuristic-iac/pkg/graph => ../pkg/graph
-github.com/futuristic-iac/pkg/platform => ../pkg/platform
-github.com/futuristic-iac/pkg/policy => ../pkg/policy
-)
-
-
-================================================================================
-FILE: fiac-cli\main.go
-================================================================================
-
-package main
-
-import (
-	"bytes"
-	"encoding/json"
-	"flag"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"os"
-
-	"github.com/futuristic-iac/pkg/api"
-	"github.com/futuristic-iac/pkg/graph"
-)
-
-// Config holds service URLs
-type Config struct {
-	IngestionURL  string
-	SemanticURL   string
-	EstimationURL string
-	PolicyURL     string
-}
-
-// Defaults for local docker/dev
-var cfg = Config{
-	IngestionURL:  "http://localhost:8081/ingest",
-	SemanticURL:   "http://localhost:8082/semantify",
-	EstimationURL: "http://localhost:8085/estimate",
-	PolicyURL:     "http://localhost:8086/evaluate",
-}
-
-func main() {
-	planPath := flag.String("plan", "tfplan.json", "Path to terraform plan JSON")
-	outputFormat := flag.String("output", "text", "Output format (text, json)")
-	flag.Parse()
-
-	// 1. Read Plan
-	planJSON, err := os.ReadFile(*planPath)
-	if err != nil {
-		log.Fatalf("Failed to read plan file: %v", err)
-	}
-
-	// 2. Ingest
-	fmt.Println("Analyzing infrastructure...")
-	g, err := callIngestion(planJSON)
-	if err != nil {
-		log.Fatalf("Ingestion failed: %v", err)
-	}
-
-	// 3. Semantify
-	fmt.Println("Mapping to billing components...")
-	comps, err := callSemantic(g)
-	if err != nil {
-		log.Fatalf("Semantic mapping failed: %v", err)
-	}
-
-	// 4. Estimate
-	fmt.Println("Predicting usage and estimating cost...")
-	est, err := callEstimation(comps)
-	if err != nil {
-		log.Fatalf("Estimation failed: %v", err)
-	}
-
-	// 5. Policy Check
-	fmt.Println("Verifying governance policies...")
-	pRes, err := callPolicy(est)
-	if err != nil {
-		log.Fatalf("Policy check failed: %v", err)
-	}
-
-	// 6. Output
-	if *outputFormat == "json" {
-		out := struct {
-			Estimate *api.EstimationResult `json:"estimate"`
-			Policy   *api.PolicyResult     `json:"policy"`
-		}{est, pRes}
-		je := json.NewEncoder(os.Stdout)
-		je.SetIndent("", "  ")
-		je.Encode(out)
-	} else {
-		printTextReport(est, pRes)
-	}
-	
-	if !pRes.Allowed {
-		os.Exit(1)
-	}
-}
-
-func callIngestion(plan []byte) (*graph.InfrastructureGraph, error) {
-	resp, err := http.Post(cfg.IngestionURL, "application/json", bytes.NewBuffer(plan))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status %d", resp.StatusCode)
-	}
-	var g graph.InfrastructureGraph
-	if err := json.NewDecoder(resp.Body).Decode(&g); err != nil {
-		return nil, err
-	}
-	return &g, nil
-}
-
-func callSemantic(g *graph.InfrastructureGraph) ([]api.BillingComponent, error) {
-	body, _ := json.Marshal(g)
-	resp, err := http.Post(cfg.SemanticURL, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status %d", resp.StatusCode)
-	}
-	var comps []api.BillingComponent
-	if err := json.NewDecoder(resp.Body).Decode(&comps); err != nil {
-		return nil, err
-	}
-	return comps, nil
-}
-
-func callEstimation(comps []api.BillingComponent) (*api.EstimationResult, error) {
-	body, _ := json.Marshal(comps)
-	resp, err := http.Post(cfg.EstimationURL, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, string(b))
-	}
-	var est api.EstimationResult
-	if err := json.NewDecoder(resp.Body).Decode(&est); err != nil {
-		return nil, err
-	}
-	return &est, nil
-}
-
-func callPolicy(est *api.EstimationResult) (*api.PolicyResult, error) {
-	body, _ := json.Marshal(est)
-	resp, err := http.Post(cfg.PolicyURL, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("status %d", resp.StatusCode)
-	}
-	var res api.PolicyResult
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
-func printTextReport(est *api.EstimationResult, p *api.PolicyResult) {
-	fmt.Println("\n--- Cost Intelligence Report ---")
-	fmt.Printf("Status:                   %s\n", getStatus(est))
-	fmt.Printf("Confidence Score:         %.2f%%\n", est.ConfidenceScore*100)
-	fmt.Printf("Total Monthly Cost (P50): $%.2f\n", est.TotalMonthlyCost.P50)
-	fmt.Printf("Total Monthly Cost (P90): $%.2f\n", est.TotalMonthlyCost.P90)
-	fmt.Printf("Carbon Footprint:         %.2f kgCO2e\n", est.Carbon.KgCO2e)
-	
-	if len(est.Errors) > 0 {
-		fmt.Println("\n CRITICAL ERRORS:")
-		for _, e := range est.Errors {
-			fmt.Printf("  ! %s\n", e)
-		}
-	} else {
-		fmt.Println("\n Drivers:")
-		for _, d := range est.Drivers {
-			fmt.Printf(" - %s: $%.2f (P90) [%s]\n", d.Component, d.P90Cost, d.Reason)
+	entry, exists := r.store.Get(skuKey, region)
+	if !exists {
+		// Try with default region
+		entry, exists = r.store.Get(skuKey, "us-east-1")
+		if !exists {
+			return ResolvedPrice{}, fmt.Errorf("no price found for SKU: %s in region: %s", skuKey, region)
 		}
 	}
 
-	fmt.Println("\n--- Governance ---")
-	if p.Allowed {
-		fmt.Println("✅ Plan Allowed")
-	} else {
-		fmt.Println("❌ Plan Rejected")
-		for _, v := range p.Violations {
-			fmt.Printf("  - VIOLATION: %s\n", v)
+	return ResolvedPrice{
+		ComponentID:     comp.ID,
+		SKUID:           entry.SKUID,
+		PricePerUnit:    entry.PricePerUnit,
+		Unit:            entry.Unit,
+		CarbonIntensity: entry.CarbonIntensity,
+		Explanation:     fmt.Sprintf("Matched %s at $%.6f/%s", entry.SKUID, entry.PricePerUnit, entry.Unit),
+	}, nil
+}
+
+func (r *Resolver) buildSKUKey(comp api.BillingComponent) string {
+	switch comp.Type {
+	case api.ComponentTypeCompute:
+		if instanceType, ok := comp.Attributes["instance_type"].(string); ok {
+			return fmt.Sprintf("ec2:%s:ondemand", instanceType)
 		}
-	}
-	for _, w := range p.Warnings {
-		fmt.Printf("  - WARNING: %s\n", w)
-	}
-}
-
-func getStatus(est *api.EstimationResult) string {
-	if est.IsIncomplete {
-		return "⚠️ INCOMPLETE"
-	}
-	if est.ConfidenceScore < 0.8 {
-		return "⚠️ LOW CONFIDENCE"
-	}
-	return "✅ OK"
-}
-
-
-================================================================================
-FILE: infra\prometheus.yml
-================================================================================
-
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-
-  - job_name: 'fiac_services'
-    static_configs:
-      - targets: ['host.docker.internal:8080'] # Placeholder for service metrics
-
-
-================================================================================
-FILE: ingestion-service\go.mod
-================================================================================
-
-module github.com/futuristic-iac/ingestion-service
-
-go 1.23.0
-replace (
-github.com/futuristic-iac/pkg/api => ../pkg/api
-github.com/futuristic-iac/pkg/focus => ../pkg/focus
-github.com/futuristic-iac/pkg/graph => ../pkg/graph
-github.com/futuristic-iac/pkg/platform => ../pkg/platform
-github.com/futuristic-iac/pkg/policy => ../pkg/policy
-)
-
-
-================================================================================
-FILE: ingestion-service\main.go
-================================================================================
-
-package main
-
-import (
-	"encoding/json"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
-
-	"github.com/futuristic-iac/ingestion-service/parser"
-)
-
-func main() {
-	http.HandleFunc("/ingest", handleIngest)
-	http.HandleFunc("/health", handleHealth)
-
-	port := ":8081"
-	log.Printf("IaC Ingestion Service starting on %s", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		if instanceClass, ok := comp.Attributes["instance_class"].(string); ok {
+			engine := getStrAttr(comp.Attributes, "engine", "mysql")
+			return fmt.Sprintf("rds:%s:%s:ondemand", engine, instanceClass)
+		}
+		return "compute:generic"
+	
+	case api.ComponentTypeStorage:
+		volumeType := getStrAttr(comp.Attributes, "volume_type", "gp3")
+		return fmt.Sprintf("ebs:%s:storage", volumeType)
+	
+	case api.ComponentTypeNetwork:
+		return "ec2:data-transfer:out"
+	
+	default:
+		return "generic:unit"
 	}
 }
 
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+func getStrAttr(attrs map[string]any, key, defaultVal string) string {
+	if v, ok := attrs[key].(string); ok {
+		return v
+	}
+	return defaultVal
 }
 
-func handleIngest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Failed to read body", http.StatusInternalServerError)
-		return
-	}
-	defer r.Body.Close()
-
-	g, err := parser.Parse(body)
-	if err != nil {
-		log.Printf("Parse error: %v", err)
-		http.Error(w, fmt.Sprintf("Parse error: %v", err), http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(g); err != nil {
-		log.Printf("Encode error: %v", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+// PriceStore is an in-memory price database (stub implementation).
+type PriceStore struct {
+	entries map[string]map[string]PriceEntry // sku -> region -> entry
 }
 
-
-================================================================================
-FILE: ingestion-service\parser\parser.go
-================================================================================
-
-package parser
-
-import (
-	"encoding/json"
-	"fmt"
-
-	"github.com/futuristic-iac/pkg/graph"
-)
-
-// Parse converts a Terraform Plan JSON into a normalized InfrastructureGraph.
-func Parse(planJSON []byte) (*graph.InfrastructureGraph, error) {
-	var plan TFPlan
-	if err := json.Unmarshal(planJSON, &plan); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal plan: %w", err)
+// NewPriceStore creates a store with stub AWS pricing data.
+func NewPriceStore() *PriceStore {
+	store := &PriceStore{
+		entries: make(map[string]map[string]PriceEntry),
 	}
+	
+	// Add stub EC2 pricing
+	store.addEntry(PriceEntry{
+		SKUID:           "ec2:t3.micro:ondemand",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "compute",
+		Unit:            "hours",
+		PricePerUnit:    0.0104,
+		CarbonIntensity: 0.005,
+	})
+	store.addEntry(PriceEntry{
+		SKUID:           "ec2:t3.small:ondemand",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "compute",
+		Unit:            "hours",
+		PricePerUnit:    0.0208,
+		CarbonIntensity: 0.01,
+	})
+	store.addEntry(PriceEntry{
+		SKUID:           "ec2:t3.medium:ondemand",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "compute",
+		Unit:            "hours",
+		PricePerUnit:    0.0416,
+		CarbonIntensity: 0.02,
+	})
+	store.addEntry(PriceEntry{
+		SKUID:           "ec2:t3.large:ondemand",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "compute",
+		Unit:            "hours",
+		PricePerUnit:    0.0832,
+		CarbonIntensity: 0.04,
+	})
+	store.addEntry(PriceEntry{
+		SKUID:           "ec2:m5.large:ondemand",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "compute",
+		Unit:            "hours",
+		PricePerUnit:    0.096,
+		CarbonIntensity: 0.05,
+	})
+	store.addEntry(PriceEntry{
+		SKUID:           "ec2:m5.xlarge:ondemand",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "compute",
+		Unit:            "hours",
+		PricePerUnit:    0.192,
+		CarbonIntensity: 0.10,
+	})
 
-	g := &graph.InfrastructureGraph{
-		Resources: []graph.Resource{},
+	// Add EBS pricing
+	store.addEntry(PriceEntry{
+		SKUID:           "ebs:gp3:storage",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "storage",
+		Unit:            "GB-month",
+		PricePerUnit:    0.08,
+		CarbonIntensity: 0.001,
+	})
+	store.addEntry(PriceEntry{
+		SKUID:           "ebs:gp2:storage",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "storage",
+		Unit:            "GB-month",
+		PricePerUnit:    0.10,
+		CarbonIntensity: 0.001,
+	})
+	store.addEntry(PriceEntry{
+		SKUID:           "ebs:io1:storage",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "storage",
+		Unit:            "GB-month",
+		PricePerUnit:    0.125,
+		CarbonIntensity: 0.002,
+	})
+
+	// Add network pricing
+	store.addEntry(PriceEntry{
+		SKUID:           "ec2:data-transfer:out",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "network",
+		Unit:            "GB",
+		PricePerUnit:    0.09,
+		CarbonIntensity: 0.0005,
+	})
+
+	// Add RDS pricing
+	store.addEntry(PriceEntry{
+		SKUID:           "rds:mysql:db.t3.micro:ondemand",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "compute",
+		Unit:            "hours",
+		PricePerUnit:    0.017,
+		CarbonIntensity: 0.008,
+	})
+	store.addEntry(PriceEntry{
+		SKUID:           "rds:mysql:db.t3.small:ondemand",
+		Provider:        "aws",
+		Region:          "us-east-1",
+		ResourceType:    "compute",
+		Unit:            "hours",
+		PricePerUnit:    0.034,
+		CarbonIntensity: 0.016,
+	})
+
+	return store
+}
+
+func (s *PriceStore) addEntry(entry PriceEntry) {
+	if _, exists := s.entries[entry.SKUID]; !exists {
+		s.entries[entry.SKUID] = make(map[string]PriceEntry)
 	}
+	s.entries[entry.SKUID][entry.Region] = entry
+}
 
-	// Index Configuration Dependencies
-	// Map[ResourceAddress] -> []DependsOnAddresses
-	dependencies := make(map[string][]string)
-	if plan.FollowsConfig() {
-		for _, res := range plan.Config.RootModule.Resources {
-			// address usually matches, but config address might differ slightly from plan address (module prefixes)
-			// For MVP, assuming match.
-			if len(res.DependsOn) > 0 {
-				dependencies[res.Address] = res.DependsOn
+// Get retrieves a price entry for a SKU and region.
+func (s *PriceStore) Get(sku, region string) (PriceEntry, bool) {
+	regions, exists := s.entries[sku]
+	if !exists {
+		// Try partial match
+		for k, r := range s.entries {
+			if matchSKU(sku, k) {
+				if entry, ok := r[region]; ok {
+					return entry, true
+				}
+				if entry, ok := r["us-east-1"]; ok {
+					return entry, true
+				}
 			}
 		}
-	}
-
-	// Iterate over resource changes to build the graph nodes
-	for _, rc := range plan.ResourceChanges {
-		if rc.Change.Actions[0] == "delete" {
-			continue // Start with ignoring deletes for MVP
-		}
-
-		// Handle "attributes" being nil in some cases (e.g. unknown)
-		attrs, ok := rc.Change.After.(map[string]interface{})
-		if !ok {
-			attrs = make(map[string]interface{})
-		}
-
-		res := graph.Resource{
-			Address:      rc.Address,
-			Type:         rc.Type,
-			Name:         rc.Name,
-			Provider:     rc.ProviderName,
-			Attributes:   attrs,
-			Dependencies: []string{},
-		}
-		
-		// Attach dependencies if found in config
-		if deps, found := dependencies[rc.Address]; found {
-			res.Dependencies = deps
-		}
-		
-		g.Resources = append(g.Resources, res)
-	}
-
-	return g, nil
-}
-
-
-================================================================================
-FILE: ingestion-service\parser\tfjson.go
-================================================================================
-
-package parser
-
-import "encoding/json"
-
-// TFPlan represents the top-level structure of `terraform show -json`
-type TFPlan struct {
-	FormatVersion    string           `json:"format_version"`
-	TerraformVersion string           `json:"terraform_version"`
-	ResourceChanges  []ResourceChange `json:"resource_changes"`
-	Config           *PlanConfig      `json:"configuration"`
-}
-
-func (p TFPlan) FollowsConfig() bool {
-	return p.Config != nil && p.Config.RootModule != nil
-}
-
-type PlanConfig struct {
-	RootModule *ConfModule `json:"root_module"`
-}
-
-type ConfModule struct {
-	Resources []ConfResource `json:"resources"`
-}
-
-type ConfResource struct {
-	Address   string   `json:"address"`
-	Name      string   `json:"name"`
-	DependsOn []string `json:"depends_on,omitempty"`
-}
-
-type ResourceChange struct {
-	Address      string `json:"address"`
-	Type         string `json:"type"`
-	Name         string `json:"name"`
-	ProviderName string `json:"provider_name"`
-	Change       Change `json:"change"`
-}
-
-type Change struct {
-	Actions []string    `json:"actions"`
-	After   interface{} `json:"after"`
-}
-
-
-================================================================================
-FILE: pkg\api\contracts.go
-================================================================================
-
-package api
-
-import (
-	"github.com/futuristic-iac/pkg/focus"
-)
-
-// BillingComponent represents an atomic billable unit derived from a Resource.
-// It encodes financial intent and variance.
-type BillingComponent struct {
-	ResourceAddress string   `json:"resource_address"`
-	ComponentType   string   `json:"component_type"` // compute, storage, network, license
-	Provider        string   `json:"provider"`
-	UsageType       string   `json:"usage_type"`       // on_demand, spot, reserved
-	Lifecycle       string   `json:"lifecycle"`        // persistent, ephemeral
-	VarianceProfile string   `json:"variance_profile"` // static, autoscaled, request_driven
-	Dependencies    []string `json:"dependencies"`     // IDs of other BillingComponents
-	
-	// LookupAttributes are used by the Pricing Engine to find the matching SKU.
-	LookupAttributes map[string]string `json:"lookup_attributes"`
-
-	// Resolved Pricing (filled by Estimation Core)
-	PricingRef *focus.PricingItem `json:"pricing_ref,omitempty"`
-
-	// Mapping Metadata
-	MappingError string `json:"mapping_error,omitempty"` // If mapping failed/incomplete
-}
-
-// UsageForecastRequest is the input to the Usage Engine.
-type UsageForecastRequest struct {
-	ResourceID   string `json:"resource_id"`
-	Class        string `json:"class"` // api, batch, stateful
-	Environment  string `json:"env"`   // prod, dev, staging
-	ResourceShape string `json:"shape"` // e.g. t3.medium
-}
-
-// UsageForecast represents the predicted usage for a specific component.
-type UsageForecast struct {
-	ResourceAddress string `json:"resource_address"`
-	Metric          string `json:"metric"` // e.g., "cpu_hours", "gb_months"
-	
-	MonthlyForecast struct {
-		P50 float64 `json:"p50"`
-		P90 float64 `json:"p90"`
-	} `json:"monthly_forecast"`
-
-	Confidence  float64  `json:"confidence"`
-	Assumptions []string `json:"assumptions"`
-}
-
-// EstimationResult represents the final cost and carbon output.
-type EstimationResult struct {
-	TotalMonthlyCost struct {
-		P50 float64 `json:"p50"`
-		P90 float64 `json:"p90"`
-	} `json:"total_monthly_cost"`
-
-	Carbon struct {
-		KgCO2e          float64 `json:"kgco2e"`
-		RegionIntensity string  `json:"region_intensity"` // low, medium, high
-	} `json:"carbon"`
-
-	Drivers []CostDriver `json:"drivers"`
-
-	// Safety & Correctness Fields
-	ConfidenceScore float64           `json:"confidence_score"` // 0.0 to 1.0
-	IsIncomplete    bool              `json:"is_incomplete"`    // True if any component failed usage/pricing/mapping
-	Errors          []string          `json:"errors"`           // Deprecated: simplistic list
-	DetailedErrors  []EstimationError `json:"detailed_errors"`  // Structured errors
-}
-
-// EstimationError provides detailed context on failures
-type EstimationError struct {
-	Component string `json:"component"`
-	Severity  string `json:"severity"` // critical | warning
-	Message   string `json:"message"`
-}
-
-const (
-	SeverityCritical = "critical"
-	SeverityWarning  = "warning"
-)
-
-// CostDriver explains a single line item contribution.
-type CostDriver struct {
-	Component string  `json:"component"` // e.g. "aws_instance.web.compute"
-	Reason    string  `json:"reason"`    // e.g. "on_demand_prod"
-	P50Cost   float64 `json:"p50_cost"`
-	P90Cost   float64 `json:"p90_cost"`
-	Formula   string  `json:"formula"`   // e.g. "730h * $0.05/h"
-}
-
-
-================================================================================
-FILE: pkg\api\go.mod
-================================================================================
-
-module github.com/futuristic-iac/pkg/api
-
-go 1.23.0
-
-
-================================================================================
-FILE: pkg\api\policy.go
-================================================================================
-
-package api
-
-// PolicyResult contains the governance decision.
-type PolicyResult struct {
-	Allowed    bool     `json:"allowed"`
-	Violations []string `json:"violations"`
-	Warnings   []string `json:"warnings"`
-}
-
-// PolicyRequest wraps the input for OPA.
-type PolicyRequest struct {
-	Input PolicyInput `json:"input"`
-}
-
-type PolicyInput struct {
-	Estimate *EstimationResult `json:"estimate"`
-	Budget   *BudgetInfo       `json:"budget"`
-}
-
-type BudgetInfo struct {
-	TotalBudget float64 `json:"total_budget"`
-}
-
-
-================================================================================
-FILE: pkg\focus\go.mod
-================================================================================
-
-module github.com/futuristic-iac/pkg/focus
-
-go 1.23.0
-
-
-================================================================================
-FILE: pkg\focus\schema.go
-================================================================================
-
-package focus
-
-import "time"
-
-// PricingItem represents a normalized pricing record following FOCUS-like semantics.
-type PricingItem struct {
-	SkuID           string                 `json:"sku_id"`
-	Provider        string                 `json:"provider"`         // AWS, GCP, Azure
-	Service         string                 `json:"service"`          // AmazonEC2
-	Family          string                 `json:"family,omitempty"` // Compute Instance
-	Region          string                 `json:"region"`
-	Unit            string                 `json:"unit"`
-	PricePerUnit    float64                `json:"price_per_unit"`
-	Currency        string                 `json:"currency"`
-	EffectiveDate   time.Time              `json:"effective_date"`
-	CarbonIntensity float64                `json:"carbon_intensity"` // gCO2e/unit
-	Attributes      map[string]interface{} `json:"attributes"`       // Searchable attributes
-
-	// Explanation Fields
-	MatchConfidence float64  `json:"match_confidence"` // 0.0 - 1.0
-	MatchedKeys     []string `json:"matched_keys"`
-	IgnoredKeys     []string `json:"ignored_keys"`
-}
-
-
-================================================================================
-FILE: pkg\graph\go.mod
-================================================================================
-
-module github.com/futuristic-iac/pkg/graph
-
-go 1.23.0
-
-
-================================================================================
-FILE: pkg\graph\graph.go
-================================================================================
-
-package graph
-
-// Resource represents a single node in the infrastructure graph.
-// It corresponds to a Terraform resource but with normalized attributes.
-type Resource struct {
-	Address      string                 `json:"address"`       // e.g., "aws_instance.web"
-	Type         string                 `json:"type"`          // e.g., "aws_instance"
-	Name         string                 `json:"name"`          // e.g., "web"
-	Provider     string                 `json:"provider"`      // e.g., "aws"
-	Region       string                 `json:"region"`        // e.g., "us-east-1"
-	Attributes   map[string]interface{} `json:"attributes"`    // Raw attributes from the plan
-	Dependencies []string               `json:"dependencies"`  // Addresses of dependencies
-}
-
-// InfrastructureGraph implies the Directed Acyclic Graph of resources.
-type InfrastructureGraph struct {
-	Resources []Resource `json:"resources"`
-	Root      string     `json:"root"` // Module root
-}
-
-
-================================================================================
-FILE: pkg\platform\auth.go
-================================================================================
-
-package platform
-
-import (
-	"crypto/subtle"
-	"net/http"
-)
-
-// BasicAuthMiddleware enforces Username/Password check from env vars.
-// Default: FAIL if not configured
-func BasicAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		user := GetEnv("AUTH_USER", "")
-		pass := GetEnv("AUTH_PASS", "")
-
-		if user == "" || pass == "" {
-			// Unsafe configuration - service should ideally not start, but middleware panicking is harsh.
-			// Return 503 or 500.
-			http.Error(w, "Service Authentication Not Configured", http.StatusServiceUnavailable)
-			return
-		}
-
-		u, p, ok := r.BasicAuth()
-		if !ok || subtle.ConstantTimeCompare([]byte(u), []byte(user)) != 1 || subtle.ConstantTimeCompare([]byte(p), []byte(pass)) != 1 {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		next(w, r)
-	}
-}
-
-// APIKeyMiddleware enforces X-API-Key header.
-func APIKeyMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		key := GetEnv("API_KEY", "")
-		if key == "" {
-			// If no key configured, skip auth (unsafe defaults logic should warn, but keeping compatible)
-			next(w, r)
-			return
-		}
-
-		if r.Header.Get("X-API-Key") != key {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		next(w, r)
-	}
-}
-
-
-================================================================================
-FILE: pkg\platform\client.go
-================================================================================
-
-package platform
-
-import (
-	"bytes"
-	"context"
-	"io"
-	"net/http"
-	"time"
-	"log/slog"
-	"fmt"
-)
-
-type HTTPClient struct {
-	Client  *http.Client
-	Retries int
-	Timeout time.Duration
-	Logger  *slog.Logger
-}
-
-func NewHTTPClient(retries int, timeout time.Duration) *HTTPClient {
-	return &HTTPClient{
-		Client: &http.Client{
-			Timeout: timeout,
-		},
-		Retries: retries,
-		Timeout: timeout,
-		Logger:  slog.Default(),
-	}
-}
-
-func (c *HTTPClient) PostJSON(url string, body []byte) (*http.Response, error) {
-	var resp *http.Response
-	var err error
-
-	for i := 0; i <= c.Retries; i++ {
-		req, rErr := http.NewRequest("POST", url, bytes.NewBuffer(body))
-		if rErr != nil {
-			return nil, rErr
-		}
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err = c.Client.Do(req)
-		if err == nil && resp.StatusCode < 500 {
-			// Success or client error (do not retry 4xx usually, unless throttling)
-			return resp, nil
-		}
-
-		if i < c.Retries {
-			c.Logger.Warn("HTTP request failed, retrying", "url", url, "attempt", i+1, "error", err)
-			time.Sleep(time.Duration(1<<i) * 200 * time.Millisecond) // Exponential backoff
-		}
+		return PriceEntry{}, false
 	}
 	
-	if err != nil {
-		return nil, fmt.Errorf("request failed after %d retries: %w", c.Retries, err)
+	entry, exists := regions[region]
+	if !exists {
+		// Fall back to us-east-1
+		entry, exists = regions["us-east-1"]
 	}
-	return resp, nil // return last response even if 500
+	return entry, exists
 }
 
+func matchSKU(query, stored string) bool {
+	// Simple prefix matching
+	return stored == query || 
+		   (len(query) > 0 && len(stored) > 0 && 
+		    (query[:min(len(query), 10)] == stored[:min(len(stored), 10)] ||
+		     strings.Contains(stored, strings.Split(query, ":")[0])))
+}
 
-================================================================================
-FILE: pkg\platform\config.go
-================================================================================
-
-package platform
-
-import (
-	"os"
-	"strconv"
-	"strings"
-)
-
-// Config helper to read env vars with defaults
-type ConfigLoader struct{}
-
-func GetEnv(key, defaultVal string) string {
-	if val, exists := os.LookupEnv(key); exists {
-		return val
+func min(a, b int) int {
+	if a < b {
+		return a
 	}
-	return defaultVal
+	return b
 }
 
-func GetEnvInt(key string, defaultVal int) int {
-	if val, exists := os.LookupEnv(key); exists {
-		if i, err := strconv.Atoi(val); err == nil {
-			return i
-		}
-	}
-	return defaultVal
-}
+--------------------------------------------------------------------------------
+FILE: internal\semantics\engine.go
+--------------------------------------------------------------------------------
 
-func GetEnvBool(key string, defaultVal bool) bool {
-	if val, exists := os.LookupEnv(key); exists {
-		if strings.ToLower(val) == "true" || val == "1" {
-			return true
-		}
-		return false
-	}
-	return defaultVal
-}
-
-
-================================================================================
-FILE: pkg\platform\go.mod
-================================================================================
-
-module github.com/futuristic-iac/pkg/platform
-
-go 1.23.0
-
-
-================================================================================
-FILE: pkg\platform\logger.go
-================================================================================
-
-package platform
-
-import (
-	"log/slog"
-	"os"
-)
-
-func InitLogger() *slog.Logger {
-	// JSON handler for production logging
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-	slog.SetDefault(logger)
-	return logger
-}
-
-func LogFatal(logger *slog.Logger, msg string, err error) {
-	logger.Error(msg, "error", err)
-	os.Exit(1)
-}
-
-
-================================================================================
-FILE: pkg\policy\go.mod
-================================================================================
-
-module github.com/futuristic-iac/pkg/policy
-
-go 1.23.0
-
-
-================================================================================
-FILE: pkg\util\units.go
-================================================================================
-
-package util
+// Package semantics provides billing semantic extraction from infrastructure.
+package semantics
 
 import (
 	"fmt"
 	"strings"
+
+	"github.com/santoshpalla27/fiac-platform/pkg/api"
+	fiacerrors "github.com/santoshpalla27/fiac-platform/pkg/errors"
 )
 
-// NormalizeUnitFactor returns the multiplier to convert 'usageUnits' into 'pricingUnits'.
-// Example: Usage="GB-Mpth", Price="GB-Mo" -> 1.0
-// Example: Usage="Hours", Price="Hrs" -> 1.0
-func NormalizeUnitFactor(usageUnit string, pricingUnit string) (float64, error) {
-	u := strings.ToLower(usageUnit)
-	p := strings.ToLower(pricingUnit)
+// Engine converts infrastructure resources to billing components.
+type Engine struct {
+	mappers map[string]ResourceMapper
+}
 
-	// Direct match
-	if u == p {
-		return 1.0, nil
-	}
+// ResourceMapper defines the interface for resource-specific mapping.
+type ResourceMapper interface {
+	Map(node api.ResourceNode) ([]api.BillingComponent, error)
+	Supports(resourceType string) bool
+}
 
-	// Aliases
-	if (u == "hours" || u == "hr") && (p == "hours" || p == "hrs") {
-		return 1.0, nil
+// NewEngine creates a new semantic engine with registered mappers.
+func NewEngine() *Engine {
+	e := &Engine{
+		mappers: make(map[string]ResourceMapper),
 	}
 	
-	// In the EC2 EBS example:
-	// Usage Forecast for storage is often just "Exists" (Hours)
-	// But Pricing is "GB-Mo".
-	// Semantic Engine passes "size_gb" in attributes.
-	// So the COST formula is: Size(GB) * Time(MonthFraction) * Price(Per-GB-Mo).
-	// This logic belongs in the Estimation Core, but we need a helper to detect unit mismatch.
+	// Register AWS mappers
+	e.RegisterMapper("aws_instance", &EC2Mapper{})
+	e.RegisterMapper("aws_ebs_volume", &EBSMapper{})
+	e.RegisterMapper("aws_db_instance", &RDSMapper{})
+	e.RegisterMapper("aws_s3_bucket", &S3Mapper{})
+	e.RegisterMapper("aws_lambda_function", &LambdaMapper{})
 	
-	return 0.0, fmt.Errorf("incompatible units: usage=%s, pricing=%s", usageUnit, pricingUnit)
+	return e
 }
 
-
-================================================================================
-FILE: policies\main.rego
-================================================================================
-
-package cost.governance
-
-default allow = false
-
-# External data passed in 'input.budget'
-budget_limit = input.budget.total_budget
-
-
-allow if {
-	count(violations) == 0
+// RegisterMapper adds a resource type mapper.
+func (e *Engine) RegisterMapper(resourceType string, mapper ResourceMapper) {
+	e.mappers[resourceType] = mapper
 }
 
-violations contains msg if {
-	input.estimate.total_monthly_cost.p90 > budget_limit
-	msg := sprintf("Total P90 monthly cost $%.2f exceeds budget of $%.2f", [input.estimate.total_monthly_cost.p90, budget_limit])
-}
-
-violations contains msg if {
-	# Example: Carbon Intensity Check
-	# input.estimate.carbon.region_intensity == "high"
-	# msg := "Deployment in high carbon intensity region detected"
-	false
-}
-
-violations contains msg if {
-	# Check for critical errors or incompleteness
-	input.estimate.is_incomplete == true
-	msg := sprintf("Estimation is incomplete due to missing data: %v", [input.estimate.errors])
-}
-
-violations contains msg if {
-	# Confidence must be high enough for approval
-	input.estimate.confidence_score < 0.8
-	msg := sprintf("Estimation confidence too low (%.2f < 0.8) for approval", [input.estimate.confidence_score])
-}
-
-warnings contains msg if {
-	input.estimate.total_monthly_cost.p90 > 800
-	msg := sprintf("Approaching budget limit: $%.2f > $800", [input.estimate.total_monthly_cost.p90])
-}
-
-
-================================================================================
-FILE: policy-engine\go.mod
-================================================================================
-
-module github.com/futuristic-iac/policy-engine
-
-go 1.23.0
-replace (
-github.com/futuristic-iac/pkg/api => ../pkg/api
-github.com/futuristic-iac/pkg/focus => ../pkg/focus
-github.com/futuristic-iac/pkg/graph => ../pkg/graph
-github.com/futuristic-iac/pkg/platform => ../pkg/platform
-github.com/futuristic-iac/pkg/policy => ../pkg/policy
-)
-
-
-================================================================================
-FILE: policy-engine\main.go
-================================================================================
-
-package main
-
-import (
-	"encoding/json"
-	"io"
-	"log"
-	"net/http"
-
-	"github.com/futuristic-iac/pkg/api"
-	"github.com/futuristic-iac/policy-engine/service"
-)
-
-func main() {
-	evaluator := service.NewEvaluator("http://localhost:8181")
-
-	http.HandleFunc("/evaluate", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Failed to read body", http.StatusInternalServerError)
-			return
-		}
-		defer r.Body.Close()
-
-		var estimate api.EstimationResult
-		if err := json.Unmarshal(body, &estimate); err != nil {
-			http.Error(w, "Invalid input JSON", http.StatusBadRequest)
-			return
-		}
-
-		result, err := evaluator.Evaluate(&estimate)
-		if err != nil {
-			log.Printf("Evaluation error: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(result)
-	})
-
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-
-	port := ":8086"
-	log.Printf("Policy Engine starting on %s", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
-	}
-}
-
-
-================================================================================
-FILE: policy-engine\service\audit.go
-================================================================================
-
-package service
-
-import (
-	"encoding/json"
-	"os"
-	"time"
-
-	"github.com/futuristic-iac/pkg/api"
-)
-
-type AuditLogger struct {
-	LogFile string
-}
-
-type AuditEntry struct {
-	Timestamp      time.Time             `json:"timestamp"`
-	PolicyInput    *api.EstimationResult `json:"input"`
-	PolicyDecision *api.PolicyResult     `json:"decision"`
-	Allowed        bool                  `json:"allowed"`
-	Hash           string                `json:"hash"` // simulated content hash
-}
-
-func NewAuditLogger(file string) *AuditLogger {
-	return &AuditLogger{LogFile: file}
-}
-
-func (l *AuditLogger) Log(input *api.EstimationResult, decision *api.PolicyResult) error {
-	entry := AuditEntry{
-		Timestamp:      time.Now(),
-		PolicyInput:    input,
-		PolicyDecision: decision,
-		Allowed:        decision.Allowed,
-		Hash:           "simulated-hash-sha256", 
-	}
-	
-	f, err := os.OpenFile(l.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	
-	if err := json.NewEncoder(f).Encode(entry); err != nil {
-		return err
-	}
-	
-	return nil
-}
-
-
-================================================================================
-FILE: policy-engine\service\evaluator.go
-================================================================================
-
-package service
-
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/http"
-
-	"github.com/futuristic-iac/pkg/api"
-)
-
-type Evaluator struct {
-	OpaURL string
-	Auditor *AuditLogger
-}
-
-func NewEvaluator(opaURL string) *Evaluator {
-	return &Evaluator{
-		OpaURL: opaURL,
-		Auditor: NewAuditLogger("policy_audit.log"),
-	}
-}
-
-func (e *Evaluator) Evaluate(estimate *api.EstimationResult) (*api.PolicyResult, error) {
-	// 1. Fetch Budget (Mock: normally http.Get("http://budget-service..."))
-	budget := map[string]interface{}{
-		"total_budget": 1200.0,
+// Process converts an infrastructure graph to billing components.
+func (e *Engine) Process(graph *api.InfrastructureGraph) (*api.SemanticResult, error) {
+	if graph == nil {
+		return nil, fmt.Errorf("graph cannot be nil")
 	}
 
-	req := map[string]interface{}{
-		"input": map[string]interface{}{
-			"estimate": estimate,
-			"budget":   budget,
-		},
-	}
-	// Note: We are using a map here because PolicyRequest struct in pkg/api might be shared/strict.
-	// Actually better to update pkg/api definitions if we want type safety. 
-	// But let's use the struct defined in pkg/api if I updated it correctly.
-	// I updated pkg/api/policy.go in the previous step? No, I tried to update it in THIS step but I can't target two files.
-	// I will update pkg/api/policy.go separately.
-	// Here I will assume pkg/api is updated.
-
-	body, _ := json.Marshal(req)
-	// Querying the 'cost/allow' rule
-	resp, err := http.Post(e.OpaURL+"/v1/data/cost/governance", "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("OPA status: %d", resp.StatusCode)
+	result := &api.SemanticResult{
+		Components:    []api.BillingComponent{},
+		MappingErrors: []api.MappingError{},
 	}
 
-	// OPA response format: { "result": { "allow": true, "violations": [...] } }
-	var opaResp struct {
-		Result struct {
-			Allow      bool     `json:"allow"`
-			Violations []string `json:"violations"`
-			Warnings   []string `json:"warnings"`
-		} `json:"result"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&opaResp); err != nil {
-		return nil, err
-	}
-
-	res := &api.PolicyResult{
-		Allowed:    opaResp.Result.Allow,
-		Violations: opaResp.Result.Violations,
-		Warnings:   opaResp.Result.Warnings,
-	}
-	
-	// Audit Log
-	if err := e.Auditor.Log(estimate, res); err != nil {
-		fmt.Printf("Audit log failed: %v\n", err)
-	}
-
-	return res, nil
-}
-
-
-================================================================================
-FILE: pricing-engine\go.mod
-================================================================================
-
-module github.com/futuristic-iac/pricing-engine
-
-go 1.23.0
-replace (
-github.com/futuristic-iac/pkg/api => ../pkg/api
-github.com/futuristic-iac/pkg/focus => ../pkg/focus
-github.com/futuristic-iac/pkg/graph => ../pkg/graph
-github.com/futuristic-iac/pkg/platform => ../pkg/platform
-github.com/futuristic-iac/pkg/policy => ../pkg/policy
-)
-
-
-================================================================================
-FILE: pricing-engine\main.go
-================================================================================
-
-package main
-
-import (
-	"encoding/json"
-	"log"
-	"net/http"
-	"time"
-
-	"github.com/futuristic-iac/pkg/focus"
-	"github.com/futuristic-iac/pricing-engine/storage"
-)
-
-var store storage.PricingStore
-
-func main() {
-	// Initialize Store
-	store = storage.NewClickHouseStore()
-
-	// Seed some data? 
-	// In real life, correct ingestion runs separately.
-
-	http.HandleFunc("/price", handleGetPrice)
-	http.HandleFunc("/health", handleHealth)
-
-	port := ":8084"
-	log.Printf("Pricing Engine starting on %s", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
-	}
-}
-
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-}
-
-type PriceRequest struct {
-	Provider   string            `json:"provider"`
-	Attributes map[string]string `json:"attributes"`
-	Timestamp  time.Time         `json:"timestamp"`
-}
-
-func handleGetPrice(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req PriceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	}
-
-	if req.Timestamp.IsZero() {
-		req.Timestamp = time.Now()
-	}
-
-	price, err := store.GetPrice(r.Context(), req.Provider, req.Attributes, req.Timestamp)
-	if err != nil {
-		// Differentiate between "Not Found" and "DB Error"
-		// For MVP, assuming non-nil error from GetPrice implies not found if it was a lookup issue.
-		// In production, check error type.
-		log.Printf("Price lookup failed for %v: %v", req.Attributes, err)
-		http.Error(w, fmt.Sprintf("Price not found: %v", err), http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(price)
-}
-
-
-================================================================================
-FILE: pricing-engine\storage\clickhouse.go
-================================================================================
-
-package storage
-
-import (
-	"context"
-	"fmt"
-	"time"
-
-	"github.com/futuristic-iac/pkg/focus"
-)
-
-package storage
-
-import (
-	"context"
-	"fmt"
-	"strings"
-	"time"
-
-	"github.com/futuristic-iac/pkg/focus"
-)
-
-// ClickHouseStore manages pricing data.
-// In a real build, we would import "github.com/ClickHouse/clickhouse-go/v2" 
-// and embed driver.Conn. For this stage, we simulate the SQL generation 
-// to ensure the architectural logic (Append-Only) is correct.
-type ClickHouseStore struct {
-	// Conn clickhouse.Conn 
-}
-
-func NewClickHouseStore() *ClickHouseStore {
-	return &ClickHouseStore{}
-}
-
-// Ingest generates the SQL for batch insertion.
-func (s *ClickHouseStore) Ingest(ctx context.Context, items []focus.PricingItem) error {
-	// Real implementation would use:
-	// batch, err := s.Conn.PrepareBatch(ctx, "INSERT INTO pricing")
-	// for _, item := range items { batch.Append(...) }
-	// return batch.Send()
-	
-	fmt.Printf("SQL [Simulated]: INSERT INTO pricing (sku_id, provider, effective_date, price, unit, attributes) VALUES (... %d items ...)\n", len(items))
-	return nil
-}
-
-// GetPrice executes the Time-Travel query.
-func (s *ClickHouseStore) GetPrice(ctx context.Context, provider string, attributes map[string]string, effectiveTime time.Time) (*focus.PricingItem, error) {
-	// 1. Build Attribute Filter (JSON based in ClickHouse)
-	// Clause: "attributes['instance_type'] = 't3.medium'"
-	// In ClickHouse: "visitParamExtractString(attributes, 'instance_type') = 't3.medium'"
-	// Or utilizing a Map column: "attributes['instance_type'] = 't3.medium'"
-	
-	whereParts := []string{"provider = ?"}
-	args := []interface{}{provider}
-	
-	// Query Explanation Metadata
-	matchReasons := []string{fmt.Sprintf("provider=%s", provider)}
-
-	for k, v := range attributes {
-		// sanitizing key for safety in demo
-		if isValidKey(k) {
-			whereParts = append(whereParts, fmt.Sprintf("attributes['%s'] = ?", k))
-			args = append(args, v)
-			matchReasons = append(matchReasons, fmt.Sprintf("%s=%s", k, v))
-		}
-	}
-	
-	// 2. Append-Only Logic:
-	// We want the LATEST record that is Effective BEFORE the requested time.
-	// SQL: ... AND effective_date <= ? ORDER BY effective_date DESC LIMIT 1
-	whereParts = append(whereParts, "effective_date <= ?")
-	args = append(args, effectiveTime)
-	
-	query := fmt.Sprintf(`
-		SELECT sku_id, unit, price_per_unit, currency, carbon_intensity, effective_date 
-		FROM pricing 
-		WHERE %s 
-		ORDER BY effective_date DESC 
-		LIMIT 1
-	`, strings.Join(whereParts, " AND "))
-	
-	// fmt.Printf("SQL [Simulated]: %s | Args: %v\n", query, args)
-
-	// 3. Stub Response (Simulating DB Hit)
-	// In production, s.Conn.QueryRow(...)
-	
-	// Simulate finding "t3.medium" if attributes match
-	if val, ok := attributes["instance_type"]; ok && val == "t3.medium" {
-		return &focus.PricingItem{
-			SkuID:           "sku-t3-medium-us-east-1",
-			Provider:        provider,
-			PricePerUnit:    0.0416,
-			Unit:            "Hrs",
-			Currency:        "USD",
-			EffectiveDate:   effectiveTime.Add(-24 * time.Hour),         // Found a record from yesterday
-			CarbonIntensity: 18.5,
-			// New Metadata for Explainability
-			Attributes: attributes, // Return what matched
-		}, nil
-	}
-	
-	// Simulate finding "gp2"
-	if val, ok := attributes["volume_type"]; ok && val == "gp2" {
-		return &focus.PricingItem{
-			SkuID:           "sku-ebs-gp2-us-east-1",
-			Provider:        provider,
-			PricePerUnit:    0.10,
-			Unit:            "GB-Mo", // Different unit! Warning!
-			Currency:        "USD",
-			EffectiveDate:   effectiveTime.Add(-48 * time.Hour),
-			CarbonIntensity: 0.2, // low for static disk
-			Attributes:      attributes,
-		}, nil
-	}
-
-	return nil, fmt.Errorf("no pricing record found matching criterias")
-}
-
-func isValidKey(k string) bool {
-	// prevent sql injection in column names for this simple builder
-	for _, c := range k {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '.') {
-			return false
-		}
-	}
-	return true
-}
-
-
-================================================================================
-FILE: pricing-engine\storage\interface.go
-================================================================================
-
-package storage
-
-import (
-	"context"
-	"time"
-
-	"github.com/futuristic-iac/pkg/focus"
-)
-
-type PricingStore interface {
-	// Ingest bulk inserts pricing items
-	Ingest(ctx context.Context, items []focus.PricingItem) error
-	
-	// GetPrice finds the best matching price for a SKU/Attributes at a specific time.
-	GetPrice(ctx context.Context, provider string, attributes map[string]string, effectiveTime time.Time) (*focus.PricingItem, error)
-}
-
-
-================================================================================
-FILE: semantic-engine\go.mod
-================================================================================
-
-module github.com/futuristic-iac/semantic-engine
-
-go 1.23.0
-replace (
-github.com/futuristic-iac/pkg/api => ../pkg/api
-github.com/futuristic-iac/pkg/focus => ../pkg/focus
-github.com/futuristic-iac/pkg/graph => ../pkg/graph
-github.com/futuristic-iac/pkg/platform => ../pkg/platform
-github.com/futuristic-iac/pkg/policy => ../pkg/policy
-)
-
-
-================================================================================
-FILE: semantic-engine\main.go
-================================================================================
-
-package main
-
-import (
-	"encoding/json"
-	"io"
-	"log"
-	"net/http"
-
-	"github.com/futuristic-iac/semantic-engine/mapper"
-	// Register mappers
-	_ "github.com/futuristic-iac/semantic-engine/mapper/aws"
-	"github.com/futuristic-iac/pkg/graph"
-	"github.com/futuristic-iac/pkg/api"
-)
-
-func main() {
-	http.HandleFunc("/semantify", handleSemantify)
-	http.HandleFunc("/health", handleHealth)
-
-	port := ":8082"
-	log.Printf("Semantic Engine starting on %s", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
-	}
-}
-
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-}
-
-func handleSemantify(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Failed to read body", http.StatusInternalServerError)
-		return
-	}
-	defer r.Body.Close()
-
-	var g graph.InfrastructureGraph
-	if err := json.Unmarshal(body, &g); err != nil {
-		http.Error(w, "Invalid graph JSON", http.StatusBadRequest)
-		return
-	}
-
-	var allComponents []api.BillingComponent
-
-	for _, res := range g.Resources {
-		comps, err := mapper.MapResource(res)
-		if err != nil {
-			log.Printf("Mapping error for %s: %v", res.Address, err)
+	for _, node := range graph.Nodes {
+		// Skip resources being deleted
+		if node.ChangeAction == api.ChangeActionDelete {
 			continue
 		}
-		if comps != nil {
-			allComponents = append(allComponents, comps...)
+
+		mapper, exists := e.mappers[node.Type]
+		if !exists {
+			// Fail closed: unknown resources generate errors
+			err := fiacerrors.NewUnknownResourceError(node.Type, node.ID)
+			result.MappingErrors = append(result.MappingErrors, api.MappingError{
+				Code:        err.Code,
+				Message:     err.Message,
+				Recoverable: false,
+			})
+			continue
 		}
+
+		components, err := mapper.Map(node)
+		if err != nil {
+			result.MappingErrors = append(result.MappingErrors, api.MappingError{
+				Code:        fiacerrors.ErrCodeMissingAttribute,
+				Message:     err.Error(),
+				Recoverable: false,
+			})
+			continue
+		}
+
+		result.Components = append(result.Components, components...)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(allComponents); err != nil {
-		log.Printf("Encode error: %v", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	return result, nil
 }
 
-
-================================================================================
-FILE: semantic-engine\mapper\mapper.go
-================================================================================
-
-package mapper
-
-import (
-	"github.com/futuristic-iac/pkg/api"
-	"github.com/futuristic-iac/pkg/graph"
-)
-
-// ResourceMapper defines the contract for converting a provider resource into billing components.
-type ResourceMapper interface {
-	// Map transforms a single resource into billable components.
-	Map(resource graph.Resource) ([]api.BillingComponent, error)
-}
-
-
-================================================================================
-FILE: semantic-engine\mapper\registry.go
-================================================================================
-
-package mapper
-
-import (
-	"fmt"
-	"github.com/futuristic-iac/pkg/api"
-	"github.com/futuristic-iac/pkg/graph"
-)
-
-// Registry holds all registered resource mappers
-type Registry struct {
-	Mappers map[string]ResourceMapper
-}
-
-func NewRegistry() *Registry {
-	return &Registry{
-		Mappers: make(map[string]ResourceMapper),
-	}
-}
-
-func (r *Registry) Register(resourceType string, mapper ResourceMapper) {
-	r.Mappers[resourceType] = mapper
-}
-
-func (r *Registry) MapResource(res graph.Resource) ([]api.BillingComponent, error) {
-	mapper, exists := r.Mappers[res.Type]
-	if !exists {
-		// FAIL CLOSED: Do not ignore unknown resources.
-		// Returns a component that will trigger a Mapping Error in validation.
-		return []api.BillingComponent{{
-			ResourceAddress: res.Address,
-			Provider:        res.Provider,
-			UsageType:       "UNSUPPORTED_RESOURCE",
-			MappingError:    fmt.Sprintf("No mapper registered for resource type: %s", res.Type),
-		}}, nil
-	}
-
-	return mapper.Map(res)
-}
-
-
-================================================================================
-FILE: semantic-engine\mapper\aws\ec2.go
-================================================================================
-
-package aws
-
-import (
-	"fmt"
-	
-	"github.com/futuristic-iac/semantic-engine/mapper"
-	"github.com/futuristic-iac/pkg/api"
-	"github.com/futuristic-iac/pkg/graph"
-)
-
-func init() {
-	mapper.Register("aws_instance", &EC2Mapper{})
-}
-
+// EC2Mapper handles aws_instance resources.
 type EC2Mapper struct{}
 
-func (m *EC2Mapper) Map(res graph.Resource) ([]api.BillingComponent, error) {
+func (m *EC2Mapper) Supports(resourceType string) bool {
+	return resourceType == "aws_instance"
+}
+
+func (m *EC2Mapper) Map(node api.ResourceNode) ([]api.BillingComponent, error) {
 	components := []api.BillingComponent{}
 
-	// 1. Compute Component
-	instanceType, ok := res.Attributes["instance_type"].(string)
-	mappingErr := ""
-	if !ok || instanceType == "" {
-		// FAIL CLOSED: Do not guess "t2.micro". 
-		// Return a component but flag it as erroneous so the policy engine sees it.
-		instanceType = "UNKNOWN"
-		mappingErr = fmt.Sprintf("Missing required attribute 'instance_type' for %s", res.Address)
-	}
-	
-	lifecycle := "persistent" // default
-	// check if spot
-	if _, isSpot := res.Attributes["spot_price"]; isSpot {
-		lifecycle = "ephemeral"
+	// Extract instance type
+	instanceType, _ := node.Attributes["instance_type"].(string)
+	if instanceType == "" {
+		instanceType = "t3.micro" // conservative default
 	}
 
-	compute := api.BillingComponent{
-		ResourceAddress: res.Address,
-		ComponentType:   "compute",
-		Provider:        "aws",
-		UsageType:       "on_demand", // default, policy can change to reserved
-		Lifecycle:       lifecycle,
-		VarianceProfile: "static", // usually always on unless autoscaled
-		Dependencies:    res.Dependencies,
-		LookupAttributes: map[string]string{
-			"instance_type": instanceType,
-			"family":        "Compute Instance", // placeholder logic
-			"usage_type":    "BoxUsage:" + instanceType, // simplified match key
+	// Compute component (EC2 instance hours)
+	components = append(components, api.BillingComponent{
+		ID:         fmt.Sprintf("%s:compute", node.ID),
+		ResourceID: node.ID,
+		Type:       api.ComponentTypeCompute,
+		UsageType:  api.UsageTypeOnDemand,
+		Lifecycle:  api.LifecycleHourly,
+		VarianceProfile: api.VarianceProfile{
+			Pattern:    "stable",
+			Seasonality: "none",
+			Confidence: 0.9,
 		},
-		MappingError: mappingErr,
-	}
-	
-	components = append(components, compute)
+		Attributes: map[string]any{
+			"instance_type": instanceType,
+			"tenancy":       getStringAttr(node.Attributes, "tenancy", "default"),
+		},
+	})
 
-	// 2. Storage (EBS)
-	// aws_instance config blocks for ebs are tricky in JSON. 
-	// They come as a list of maps in "ebs_block_device" or "root_block_device".
-	
-	if root, ok := res.Attributes["root_block_device"].([]interface{}); ok && len(root) > 0 {
-		r := root[0].(map[string]interface{})
-		volSize := 8.0 // default
-		if s, ok := r["volume_size"].(float64); ok {
-			volSize = s
+	// Root EBS volume (if specified)
+	if rootBlock, ok := node.Attributes["root_block_device"].([]interface{}); ok && len(rootBlock) > 0 {
+		if rootDev, ok := rootBlock[0].(map[string]interface{}); ok {
+			volumeSize := getFloat64Attr(rootDev, "volume_size", 8)
+			volumeType := getStringAttr(rootDev, "volume_type", "gp3")
+
+			components = append(components, api.BillingComponent{
+				ID:         fmt.Sprintf("%s:root_storage", node.ID),
+				ResourceID: node.ID,
+				Type:       api.ComponentTypeStorage,
+				UsageType:  api.UsageTypeProvisioned,
+				Lifecycle:  api.LifecycleMonthly,
+				VarianceProfile: api.VarianceProfile{
+					Pattern:    "stable",
+					Seasonality: "none",
+					Confidence: 0.95,
+				},
+				Attributes: map[string]any{
+					"volume_type": volumeType,
+					"volume_size": volumeSize,
+					"iops":        getFloat64Attr(rootDev, "iops", 3000),
+					"throughput":  getFloat64Attr(rootDev, "throughput", 125),
+				},
+				Dependencies: []string{fmt.Sprintf("%s:compute", node.ID)},
+			})
 		}
-		
-		storage := api.BillingComponent{
-			ResourceAddress: res.Address + ".root_block_device",
-			ComponentType:   "storage",
-			Provider:        "aws",
-			UsageType:       "on_demand",
-			Lifecycle:       lifecycle,
-			VarianceProfile: "static",
-			LookupAttributes: map[string]string{
-				"volume_type": "gp2", // default
-				"size_gb":     fmt.Sprintf("%f", volSize),
-			},
-		}
-		components = append(components, storage)
 	}
+
+	// Network egress (estimated)
+	components = append(components, api.BillingComponent{
+		ID:         fmt.Sprintf("%s:network", node.ID),
+		ResourceID: node.ID,
+		Type:       api.ComponentTypeNetwork,
+		UsageType:  api.UsageTypeOnDemand,
+		Lifecycle:  api.LifecyclePerUnit,
+		VarianceProfile: api.VarianceProfile{
+			Pattern:    "bursty",
+			Seasonality: "daily",
+			Confidence: 0.6, // Network is hard to predict
+		},
+		Attributes: map[string]any{
+			"direction": "egress",
+		},
+		Dependencies: []string{fmt.Sprintf("%s:compute", node.ID)},
+	})
 
 	return components, nil
 }
 
+// EBSMapper handles aws_ebs_volume resources.
+type EBSMapper struct{}
 
-================================================================================
-FILE: tests\policy_test_runner.go
-================================================================================
-
-package main
-
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"os"
-
-	"github.com/futuristic-iac/pkg/api"
-)
-
-// Policy Regression Suite
-// Tries to send various payloads to the Policy Engine and asserts the outcome.
-
-func main() {
-	fmt.Println("Running Policy Regression Tests...")
-	
-	tests := []struct {
-		Name          string
-		Estimate      api.EstimationResult
-		ExpectedAllow bool
-	}{
-		{
-			Name: "High Confidence, Low Cost -> ALLOW",
-			Estimate: api.EstimationResult{
-				TotalMonthlyCost: struct{ P50, P90 float64 `json:"p50";json:"p90"` }{500, 500},
-				ConfidenceScore: 0.95,
-				IsIncomplete:    false,
-			},
-			ExpectedAllow: true,
-		},
-		{
-			Name: "High Confidence, High Cost -> DENY",
-			Estimate: api.EstimationResult{
-				TotalMonthlyCost: struct{ P50, P90 float64 `json:"p50";json:"p90"` }{1500, 1500},
-				ConfidenceScore: 0.95,
-				IsIncomplete:    false,
-			},
-			ExpectedAllow: false,
-		},
-		{
-			Name: "Low Confidence -> DENY",
-			Estimate: api.EstimationResult{
-				TotalMonthlyCost: struct{ P50, P90 float64 `json:"p50";json:"p90"` }{100, 100},
-				ConfidenceScore: 0.5,
-				IsIncomplete:    false,
-			},
-			ExpectedAllow: false,
-		},
-		{
-			Name: "Incomplete -> DENY",
-			Estimate: api.EstimationResult{
-				TotalMonthlyCost: struct{ P50, P90 float64 `json:"p50";json:"p90"` }{100, 100},
-				ConfidenceScore: 1.0,
-				IsIncomplete:    true,
-				Errors:          []string{"Missing Price"},
-			},
-			ExpectedAllow: false,
-		},
-	}
-	
-	pass := 0
-	fail := 0
-	
-	for _, t := range tests {
-		fmt.Printf("TEST: %s ... ", t.Name)
-		
-		// Note: The Evaluator in the service mocks the Budget fetch. 
-		// So we are testing the service Integration + OPA.
-		
-		body, _ := json.Marshal(t.Estimate)
-		resp, err := http.Post("http://localhost:8086/evaluate", "application/json", bytes.NewBuffer(body))
-		if err != nil {
-			fmt.Printf("ERROR calling service: %v\n", err)
-			fail++
-			continue
-		}
-		defer resp.Body.Close()
-		
-		var res api.PolicyResult
-		json.NewDecoder(resp.Body).Decode(&res)
-		
-		if res.Allowed == t.ExpectedAllow {
-			fmt.Println("PASS")
-			pass++
-		} else {
-			fmt.Printf("FAIL (Got %v, Expected %v)\n", res.Allowed, t.ExpectedAllow)
-			fail++
-		}
-	}
-	
-	fmt.Printf("\nResult: %d PASS, %d FAIL\n", pass, fail)
-	if fail > 0 {
-		os.Exit(1)
-	}
+func (m *EBSMapper) Supports(resourceType string) bool {
+	return resourceType == "aws_ebs_volume"
 }
 
+func (m *EBSMapper) Map(node api.ResourceNode) ([]api.BillingComponent, error) {
+	volumeType := getStringAttr(node.Attributes, "type", "gp3")
+	volumeSize := getFloat64Attr(node.Attributes, "size", 100)
 
-================================================================================
-FILE: usage-engine\go.mod
-================================================================================
-
-module github.com/futuristic-iac/usage-engine
-
-go 1.23.0
-replace (
-github.com/futuristic-iac/pkg/api => ../pkg/api
-github.com/futuristic-iac/pkg/focus => ../pkg/focus
-github.com/futuristic-iac/pkg/graph => ../pkg/graph
-github.com/futuristic-iac/pkg/platform => ../pkg/platform
-github.com/futuristic-iac/pkg/policy => ../pkg/policy
-)
-
-
-================================================================================
-FILE: usage-engine\main.go
-================================================================================
-
-package main
-
-import (
-	"encoding/json"
-	"io"
-	"log"
-	"net/http"
-
-	"github.com/futuristic-iac/pkg/api"
-	"github.com/futuristic-iac/usage-engine/service"
-)
-
-func main() {
-	http.HandleFunc("/forecast", handleForecast)
-	http.HandleFunc("/health", handleHealth)
-
-	port := ":8083"
-	log.Printf("Usage Engine starting on %s", port)
-	if err := http.ListenAndServe(port, nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
-	}
-}
-
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
-}
-
-func handleForecast(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Failed to read body", http.StatusInternalServerError)
-		return
-	}
-	defer r.Body.Close()
-
-	var req api.UsageForecastRequest
-	if err := json.Unmarshal(body, &req); err != nil {
-		http.Error(w, "Invalid request JSON", http.StatusBadRequest)
-		return
-	}
-
-	// Execute implementation
-	forecast := service.Predict(req)
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(forecast); err != nil {
-		log.Printf("Encode error: %v", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
-}
-
-
-================================================================================
-FILE: usage-engine\service\forecast.go
-================================================================================
-
-package service
-
-import (
-	"github.com/futuristic-iac/pkg/api"
-)
-
-func Predict(req api.UsageForecastRequest) (*api.UsageForecast, error) {
-	// Simple heuristic: 730 hours/month for everything unless specified
-	// In reality, this would query Prometheus or CloudWatch history.
-	
-	usage := 730.0 // Default for always-on compute
-	metric := "hours"
-	confidence := 0.8
-	
-	if req.Component.Provider == "aws" {
-		if req.Component.UsageType == "compute" {
-			// EC2: Time-based
-			usage = 730.0
-			metric = "hours"
-			confidence = 0.95
-		} else if req.Component.UsageType == "storage" {
-			// EBS: Size-based (allocated static), priced in GB-Mo.
-			// The Estimator expects "units" to be multiplied by price.
-			// Price is per GB-Mo. Size is in attributes.
-			// If we return usage=1.0 "months", Estimator will do size * 1.0 = size.
-			
-			usage = 1.0
-			metric = "months"
-			confidence = 0.9
-		}
-	}
-
-	return &api.UsageForecast{
-		MonthlyForecast: struct {
-			P50 float64 `json:"p50"`
-			P90 float64 `json:"p90"`
-		}{
-			P50: usage,
-			P90: usage, // Flat forecast for MVP
+	component := api.BillingComponent{
+		ID:         fmt.Sprintf("%s:storage", node.ID),
+		ResourceID: node.ID,
+		Type:       api.ComponentTypeStorage,
+		UsageType:  api.UsageTypeProvisioned,
+		Lifecycle:  api.LifecycleMonthly,
+		VarianceProfile: api.VarianceProfile{
+			Pattern:    "stable",
+			Seasonality: "none",
+			Confidence: 0.95,
 		},
-		Metric:     metric, 
-		Confidence: confidence,
+		Attributes: map[string]any{
+			"volume_type": volumeType,
+			"volume_size": volumeSize,
+			"iops":        getFloat64Attr(node.Attributes, "iops", 3000),
+			"throughput":  getFloat64Attr(node.Attributes, "throughput", 125),
+		},
+	}
+
+	return []api.BillingComponent{component}, nil
+}
+
+// RDSMapper handles aws_db_instance resources.
+type RDSMapper struct{}
+
+func (m *RDSMapper) Supports(resourceType string) bool {
+	return resourceType == "aws_db_instance"
+}
+
+func (m *RDSMapper) Map(node api.ResourceNode) ([]api.BillingComponent, error) {
+	components := []api.BillingComponent{}
+
+	instanceClass := getStringAttr(node.Attributes, "instance_class", "db.t3.micro")
+	engine := getStringAttr(node.Attributes, "engine", "mysql")
+	storageSize := getFloat64Attr(node.Attributes, "allocated_storage", 20)
+	multiAZ := getBoolAttr(node.Attributes, "multi_az", false)
+
+	// Compute component
+	components = append(components, api.BillingComponent{
+		ID:         fmt.Sprintf("%s:compute", node.ID),
+		ResourceID: node.ID,
+		Type:       api.ComponentTypeCompute,
+		UsageType:  api.UsageTypeOnDemand,
+		Lifecycle:  api.LifecycleHourly,
+		VarianceProfile: api.VarianceProfile{
+			Pattern:    "stable",
+			Seasonality: "none",
+			Confidence: 0.9,
+		},
+		Attributes: map[string]any{
+			"instance_class": instanceClass,
+			"engine":         engine,
+			"multi_az":       multiAZ,
+		},
+	})
+
+	// Storage component
+	components = append(components, api.BillingComponent{
+		ID:         fmt.Sprintf("%s:storage", node.ID),
+		ResourceID: node.ID,
+		Type:       api.ComponentTypeStorage,
+		UsageType:  api.UsageTypeProvisioned,
+		Lifecycle:  api.LifecycleMonthly,
+		VarianceProfile: api.VarianceProfile{
+			Pattern:    "stable",
+			Seasonality: "none",
+			Confidence: 0.9,
+		},
+		Attributes: map[string]any{
+			"storage_type": getStringAttr(node.Attributes, "storage_type", "gp2"),
+			"storage_size": storageSize,
+			"multi_az":     multiAZ,
+		},
+		Dependencies: []string{fmt.Sprintf("%s:compute", node.ID)},
+	})
+
+	return components, nil
+}
+
+// S3Mapper handles aws_s3_bucket resources.
+type S3Mapper struct{}
+
+func (m *S3Mapper) Supports(resourceType string) bool {
+	return resourceType == "aws_s3_bucket"
+}
+
+func (m *S3Mapper) Map(node api.ResourceNode) ([]api.BillingComponent, error) {
+	components := []api.BillingComponent{}
+
+	// Storage component (S3 is usage-based, hard to predict)
+	components = append(components, api.BillingComponent{
+		ID:         fmt.Sprintf("%s:storage", node.ID),
+		ResourceID: node.ID,
+		Type:       api.ComponentTypeStorage,
+		UsageType:  api.UsageTypeOnDemand,
+		Lifecycle:  api.LifecyclePerUnit,
+		VarianceProfile: api.VarianceProfile{
+			Pattern:    "predictable",
+			Seasonality: "monthly",
+			Confidence: 0.5, // S3 usage is hard to predict from plan
+		},
+		Attributes: map[string]any{
+			"storage_class": "STANDARD",
+		},
+	})
+
+	// Request component
+	components = append(components, api.BillingComponent{
+		ID:         fmt.Sprintf("%s:requests", node.ID),
+		ResourceID: node.ID,
+		Type:       api.ComponentTypeData,
+		UsageType:  api.UsageTypeOnDemand,
+		Lifecycle:  api.LifecyclePerUnit,
+		VarianceProfile: api.VarianceProfile{
+			Pattern:    "bursty",
+			Seasonality: "daily",
+			Confidence: 0.4,
+		},
+		Attributes: map[string]any{},
+		Dependencies: []string{fmt.Sprintf("%s:storage", node.ID)},
+	})
+
+	return components, nil
+}
+
+// LambdaMapper handles aws_lambda_function resources.
+type LambdaMapper struct{}
+
+func (m *LambdaMapper) Supports(resourceType string) bool {
+	return resourceType == "aws_lambda_function"
+}
+
+func (m *LambdaMapper) Map(node api.ResourceNode) ([]api.BillingComponent, error) {
+	memorySize := getFloat64Attr(node.Attributes, "memory_size", 128)
+	
+	return []api.BillingComponent{
+		{
+			ID:         fmt.Sprintf("%s:invocations", node.ID),
+			ResourceID: node.ID,
+			Type:       api.ComponentTypeCompute,
+			UsageType:  api.UsageTypeOnDemand,
+			Lifecycle:  api.LifecyclePerUnit,
+			VarianceProfile: api.VarianceProfile{
+				Pattern:    "bursty",
+				Seasonality: "daily",
+				Confidence: 0.4, // Lambda usage very hard to predict
+			},
+			Attributes: map[string]any{
+				"memory_size": memorySize,
+				"runtime":     getStringAttr(node.Attributes, "runtime", "nodejs18.x"),
+			},
+		},
 	}, nil
 }
+
+// Helper functions
+func getStringAttr(attrs map[string]any, key, defaultVal string) string {
+	if v, ok := attrs[key].(string); ok && v != "" {
+		return v
+	}
+	return defaultVal
+}
+
+func getFloat64Attr(attrs map[string]any, key string, defaultVal float64) float64 {
+	if v, ok := attrs[key].(float64); ok {
+		return v
+	}
+	if v, ok := attrs[key].(int); ok {
+		return float64(v)
+	}
+	return defaultVal
+}
+
+func getBoolAttr(attrs map[string]any, key string, defaultVal bool) bool {
+	if v, ok := attrs[key].(bool); ok {
+		return v
+	}
+	return defaultVal
+}
+
+// isSupportedType checks if a resource type prefix is supported
+func isSupportedType(resourceType string) bool {
+	supportedPrefixes := []string{"aws_", "azurerm_", "google_"}
+	for _, prefix := range supportedPrefixes {
+		if strings.HasPrefix(resourceType, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+--------------------------------------------------------------------------------
+FILE: internal\usage\predictor.go
+--------------------------------------------------------------------------------
+
+// Package usage provides predictive usage estimation with uncertainty.
+package usage
+
+import (
+	"github.com/santoshpalla27/fiac-platform/pkg/api"
+	"github.com/santoshpalla27/fiac-platform/pkg/confidence"
+)
+
+// Predictor generates usage predictions for billing components.
+type Predictor struct {
+	profiles map[string]UsageProfile
+}
+
+// UsageProfile defines expected usage patterns for an environment.
+type UsageProfile struct {
+	Name              string
+	UtilizationFactor float64 // 0-1, percentage of capacity used
+	GrowthFactor      float64 // Monthly growth rate
+	VarianceFactor    float64 // How much P90 differs from P50
+	BaseConfidence    float64
+}
+
+// NewPredictor creates a predictor with default profiles.
+func NewPredictor() *Predictor {
+	return &Predictor{
+		profiles: map[string]UsageProfile{
+			"dev": {
+				Name:              "Development",
+				UtilizationFactor: 0.2,  // 20% utilization
+				GrowthFactor:      0.0,  // No growth assumption
+				VarianceFactor:    1.3,  // 30% variance
+				BaseConfidence:    0.7,
+			},
+			"staging": {
+				Name:              "Staging",
+				UtilizationFactor: 0.4,
+				GrowthFactor:      0.05,
+				VarianceFactor:    1.4,
+				BaseConfidence:    0.65,
+			},
+			"prod": {
+				Name:              "Production",
+				UtilizationFactor: 0.7,
+				GrowthFactor:      0.1,
+				VarianceFactor:    1.5,
+				BaseConfidence:    0.6,
+			},
+		},
+	}
+}
+
+// Predict generates usage predictions for components.
+func (p *Predictor) Predict(components []api.BillingComponent, environment string) *api.UsageResult {
+	profile, exists := p.profiles[environment]
+	if !exists {
+		profile = p.profiles["dev"] // Conservative default
+	}
+
+	result := &api.UsageResult{
+		Predictions: []api.UsagePrediction{},
+		Environment: environment,
+	}
+
+	var confidenceSum float64
+	for _, comp := range components {
+		prediction := p.predictComponent(comp, profile)
+		result.Predictions = append(result.Predictions, prediction)
+		confidenceSum += prediction.Confidence
+	}
+
+	if len(result.Predictions) > 0 {
+		result.AverageConfidence = confidenceSum / float64(len(result.Predictions))
+	}
+
+	return result
+}
+
+func (p *Predictor) predictComponent(comp api.BillingComponent, profile UsageProfile) api.UsagePrediction {
+	prediction := api.UsagePrediction{
+		ComponentID: comp.ID,
+		Assumptions: []string{},
+	}
+
+	// Apply base confidence from variance profile
+	baseConf := comp.VarianceProfile.Confidence
+	if baseConf == 0 {
+		baseConf = profile.BaseConfidence
+	}
+
+	// Combine with profile confidence
+	prediction.Confidence = confidence.Aggregate([]float64{baseConf, profile.BaseConfidence})
+
+	switch comp.Type {
+	case api.ComponentTypeCompute:
+		prediction = p.predictCompute(comp, profile, prediction)
+	case api.ComponentTypeStorage:
+		prediction = p.predictStorage(comp, profile, prediction)
+	case api.ComponentTypeNetwork:
+		prediction = p.predictNetwork(comp, profile, prediction)
+	case api.ComponentTypeData:
+		prediction = p.predictData(comp, profile, prediction)
+	default:
+		prediction.Metric = "units"
+		prediction.Unit = "units"
+		prediction.P50 = 1
+		prediction.P90 = 1
+		prediction.Confidence = confidence.LowConfidence
+		prediction.Assumptions = append(prediction.Assumptions, "unknown-component-type")
+	}
+
+	return prediction
+}
+
+func (p *Predictor) predictCompute(comp api.BillingComponent, profile UsageProfile, pred api.UsagePrediction) api.UsagePrediction {
+	pred.Metric = "hours"
+	pred.Unit = "hours/month"
+
+	// Base: 730 hours/month (full month)
+	hoursPerMonth := 730.0
+
+	switch comp.UsageType {
+	case api.UsageTypeOnDemand:
+		// Apply utilization factor
+		pred.P50 = hoursPerMonth * profile.UtilizationFactor
+		pred.P90 = hoursPerMonth * profile.UtilizationFactor * profile.VarianceFactor
+		pred.Assumptions = append(pred.Assumptions, 
+			"base-730-hours",
+			"utilization-"+profile.Name,
+		)
+	case api.UsageTypeReserved:
+		// Reserved instances run full time
+		pred.P50 = hoursPerMonth
+		pred.P90 = hoursPerMonth
+		pred.Confidence = confidence.HighConfidence
+		pred.Assumptions = append(pred.Assumptions, "reserved-full-utilization")
+	case api.UsageTypeSpot:
+		// Spot instances have interruption risk
+		pred.P50 = hoursPerMonth * 0.85
+		pred.P90 = hoursPerMonth * 0.95
+		pred.Confidence = confidence.Decay(pred.Confidence, 1)
+		pred.Assumptions = append(pred.Assumptions, "spot-interruption-risk")
+	default:
+		pred.P50 = hoursPerMonth
+		pred.P90 = hoursPerMonth
+	}
+
+	return pred
+}
+
+func (p *Predictor) predictStorage(comp api.BillingComponent, profile UsageProfile, pred api.UsagePrediction) api.UsagePrediction {
+	pred.Metric = "gb_months"
+	pred.Unit = "GB-months"
+
+	// Storage is provisioned, so prediction is based on provisioned size
+	size := getFloatAttr(comp.Attributes, "volume_size", 100)
+
+	pred.P50 = size
+	pred.P90 = size * (1 + profile.GrowthFactor) // Account for potential growth
+	pred.Confidence = confidence.HighConfidence
+	pred.Assumptions = append(pred.Assumptions, "provisioned-storage", "monthly-growth-possible")
+
+	return pred
+}
+
+func (p *Predictor) predictNetwork(comp api.BillingComponent, profile UsageProfile, pred api.UsagePrediction) api.UsagePrediction {
+	pred.Metric = "gb_transfer"
+	pred.Unit = "GB/month"
+
+	// Network is very hard to predict, use conservative estimates
+	baseGB := 10.0 // 10 GB base
+
+	switch profile.Name {
+	case "Production":
+		baseGB = 100.0
+	case "Staging":
+		baseGB = 50.0
+	}
+
+	pred.P50 = baseGB * profile.UtilizationFactor
+	pred.P90 = baseGB * profile.UtilizationFactor * 2.0 // High variance
+	pred.Confidence = confidence.LowConfidence
+	pred.Assumptions = append(pred.Assumptions, 
+		"network-heuristic",
+		"high-variance-warning",
+	)
+
+	return pred
+}
+
+func (p *Predictor) predictData(comp api.BillingComponent, profile UsageProfile, pred api.UsagePrediction) api.UsagePrediction {
+	pred.Metric = "requests"
+	pred.Unit = "requests/month"
+
+	// Data/request-based components are usage-dependent
+	baseRequests := 10000.0
+
+	switch profile.Name {
+	case "Production":
+		baseRequests = 1000000.0
+	case "Staging":
+		baseRequests = 100000.0
+	}
+
+	pred.P50 = baseRequests * profile.UtilizationFactor
+	pred.P90 = baseRequests * profile.VarianceFactor
+	pred.Confidence = confidence.MinConfidence
+	pred.Assumptions = append(pred.Assumptions,
+		"request-heuristic",
+		"requires-historical-data",
+	)
+
+	return pred
+}
+
+func getFloatAttr(attrs map[string]any, key string, defaultVal float64) float64 {
+	if v, ok := attrs[key].(float64); ok {
+		return v
+	}
+	if v, ok := attrs[key].(int); ok {
+		return float64(v)
+	}
+	return defaultVal
+}
+
+--------------------------------------------------------------------------------
+FILE: pkg\api\billing.go
+--------------------------------------------------------------------------------
+
+// Package api defines billing component types.
+package api
+
+// BillingComponent represents an atomic billable unit.
+type BillingComponent struct {
+	ID              string          `json:"id"`
+	ResourceID      string          `json:"resource_id"`
+	Type            ComponentType   `json:"type"`
+	UsageType       UsageType       `json:"usage_type"`
+	Lifecycle       Lifecycle       `json:"lifecycle"`
+	VarianceProfile VarianceProfile `json:"variance_profile"`
+	Dependencies    []string        `json:"dependencies,omitempty"`
+	Attributes      map[string]any  `json:"attributes"`
+	MappingError    *MappingError   `json:"mapping_error,omitempty"`
+}
+
+// ComponentType represents the billing category.
+type ComponentType string
+
+const (
+	ComponentTypeCompute ComponentType = "compute"
+	ComponentTypeStorage ComponentType = "storage"
+	ComponentTypeNetwork ComponentType = "network"
+	ComponentTypeData    ComponentType = "data"
+	ComponentTypeOther   ComponentType = "other"
+)
+
+// UsageType represents how the resource is billed.
+type UsageType string
+
+const (
+	UsageTypeOnDemand  UsageType = "on_demand"
+	UsageTypeReserved  UsageType = "reserved"
+	UsageTypeSpot      UsageType = "spot"
+	UsageTypeSavings   UsageType = "savings_plan"
+	UsageTypeProvisioned UsageType = "provisioned"
+)
+
+// Lifecycle represents billing frequency.
+type Lifecycle string
+
+const (
+	LifecycleHourly  Lifecycle = "hourly"
+	LifecycleMonthly Lifecycle = "monthly"
+	LifecycleOneTime Lifecycle = "one_time"
+	LifecyclePerUnit Lifecycle = "per_unit"
+)
+
+// VarianceProfile describes expected usage variability.
+type VarianceProfile struct {
+	Pattern    string  `json:"pattern"`    // stable, bursty, predictable
+	Seasonality string `json:"seasonality"` // none, daily, weekly, monthly
+	Confidence float64 `json:"confidence"`
+}
+
+// MappingError indicates a resource couldn't be fully mapped.
+type MappingError struct {
+	Code        string `json:"code"`
+	Message     string `json:"message"`
+	Recoverable bool   `json:"recoverable"`
+}
+
+
+// SemanticResult holds the output of semantic processing.
+type SemanticResult struct {
+	Components    []BillingComponent `json:"components"`
+	MappingErrors []MappingError     `json:"mapping_errors,omitempty"`
+}
+
+--------------------------------------------------------------------------------
+FILE: pkg\api\estimation.go
+--------------------------------------------------------------------------------
+
+// Package api defines estimation result types.
+package api
+
+// EstimationResult is the final output of the estimation pipeline.
+type EstimationResult struct {
+	TotalCost       CostRange        `json:"total_cost"`
+	TotalCarbon     CarbonEstimate   `json:"total_carbon"`
+	Drivers         []CostDriver     `json:"drivers"`
+	ConfidenceScore float64          `json:"confidence_score"`
+	IsIncomplete    bool             `json:"is_incomplete"`
+	Errors          []EstimationError `json:"errors,omitempty"`
+	Lineage         []LineageItem    `json:"lineage,omitempty"`
+}
+
+// CostRange represents cost with uncertainty bounds.
+type CostRange struct {
+	P50      float64 `json:"p50"`
+	P90      float64 `json:"p90"`
+	Currency string  `json:"currency"`
+}
+
+// CarbonEstimate represents carbon footprint.
+type CarbonEstimate struct {
+	KgCO2e     float64 `json:"kg_co2e"`
+	Confidence float64 `json:"confidence"`
+	Region     string  `json:"region"`
+}
+
+// CostDriver represents a major cost contributor.
+type CostDriver struct {
+	ResourceID  string  `json:"resource_id"`
+	Name        string  `json:"name"`
+	MonthlyCost float64 `json:"monthly_cost"`
+	Percentage  float64 `json:"percentage"`
+}
+
+// EstimationError records issues during estimation.
+type EstimationError struct {
+	ResourceID  string `json:"resource_id"`
+	Code        string `json:"code"`
+	Message     string `json:"message"`
+	Recoverable bool   `json:"recoverable"`
+}
+
+// LineageItem provides explainability for a cost decision.
+type LineageItem struct {
+	ResourceID  string `json:"resource_id"`
+	Component   string `json:"component"`
+	SKU         string `json:"sku"`
+	Price       float64 `json:"price"`
+	Unit        string `json:"unit"`
+	Quantity    float64 `json:"quantity"`
+	MonthlyCost float64 `json:"monthly_cost"`
+	Explanation string `json:"explanation"`
+}
+
+--------------------------------------------------------------------------------
+FILE: pkg\api\graph.go
+--------------------------------------------------------------------------------
+
+// Package api defines the infrastructure graph model.
+package api
+
+// InfrastructureGraph represents parsed Terraform infrastructure.
+type InfrastructureGraph struct {
+	Nodes           []ResourceNode  `json:"nodes"`
+	Edges           []Dependency    `json:"edges"`
+	ProviderContext ProviderContext `json:"provider_context"`
+}
+
+// ResourceNode represents a single infrastructure resource.
+type ResourceNode struct {
+	ID           string         `json:"id"`
+	Type         string         `json:"type"`
+	Name         string         `json:"name"`
+	Provider     string         `json:"provider"`
+	Region       string         `json:"region"`
+	Attributes   map[string]any `json:"attributes"`
+	ChangeAction ChangeAction   `json:"change_action"`
+}
+
+// Dependency represents a relationship between resources.
+type Dependency struct {
+	FromID string         `json:"from_id"`
+	ToID   string         `json:"to_id"`
+	Type   DependencyType `json:"type"`
+}
+
+// ProviderContext contains provider-level configuration.
+type ProviderContext struct {
+	Provider string `json:"provider"`
+	Region   string `json:"region"`
+	Account  string `json:"account,omitempty"`
+}
+
+// ChangeAction represents Terraform change types.
+type ChangeAction string
+
+const (
+	ChangeActionCreate  ChangeAction = "create"
+	ChangeActionUpdate  ChangeAction = "update"
+	ChangeActionDelete  ChangeAction = "delete"
+	ChangeActionNoOp    ChangeAction = "no-op"
+	ChangeActionReplace ChangeAction = "replace"
+)
+
+// DependencyType represents relationship types.
+type DependencyType string
+
+const (
+	DependencyTypeReference DependencyType = "reference"
+	DependencyTypeImplicit  DependencyType = "implicit"
+)
+
+--------------------------------------------------------------------------------
+FILE: pkg\api\requests.go
+--------------------------------------------------------------------------------
+
+// Package api defines the shared request/response contracts for all services.
+package api
+
+// ParseRequest is the input for the ingestion service.
+type ParseRequest struct {
+	PlanJSON []byte `json:"plan_json"`
+}
+
+// SemanticRequest is the input for the semantic engine.
+type SemanticRequest struct {
+	Graph *InfrastructureGraph `json:"graph"`
+}
+
+// UsageRequest is the input for the usage prediction engine.
+type UsageRequest struct {
+	Components  []BillingComponent `json:"components"`
+	Environment string             `json:"environment"`
+}
+
+// PriceRequest is the input for the pricing engine.
+type PriceRequest struct {
+	Components    []BillingComponent `json:"components"`
+	Region        string             `json:"region"`
+	EffectiveDate *string            `json:"effective_date,omitempty"`
+}
+
+// EstimateRequest combines all inputs for full estimation.
+type EstimateRequest struct {
+	PlanJSON    []byte `json:"plan_json,omitempty"`
+	Graph       *InfrastructureGraph `json:"graph,omitempty"`
+	Environment string `json:"environment"`
+}
+
+// ErrorResponse is a standard error response.
+type ErrorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
+
+--------------------------------------------------------------------------------
+FILE: pkg\api\usage.go
+--------------------------------------------------------------------------------
+
+// Package api defines usage prediction types.
+package api
+
+// UsagePrediction represents predicted resource usage with uncertainty.
+type UsagePrediction struct {
+	ComponentID string   `json:"component_id"`
+	Metric      string   `json:"metric"`
+	Unit        string   `json:"unit"`
+	P50         float64  `json:"p50"`
+	P90         float64  `json:"p90"`
+	Confidence  float64  `json:"confidence"`
+	Assumptions []string `json:"assumptions"`
+}
+
+// UsageResult holds all predictions for a request.
+type UsageResult struct {
+	Predictions       []UsagePrediction `json:"predictions"`
+	AverageConfidence float64           `json:"average_confidence"`
+	Environment       string            `json:"environment"`
+}
+
+--------------------------------------------------------------------------------
+FILE: pkg\confidence\math.go
+--------------------------------------------------------------------------------
+
+// Package confidence provides confidence score math utilities.
+package confidence
+
+import "math"
+
+// Aggregate combines multiple confidence scores.
+// Uses geometric mean to penalize low-confidence components.
+func Aggregate(scores []float64) float64 {
+	if len(scores) == 0 {
+		return 0
+	}
+
+	product := 1.0
+	for _, s := range scores {
+		if s <= 0 {
+			return 0
+		}
+		product *= s
+	}
+
+	return math.Pow(product, 1.0/float64(len(scores)))
+}
+
+// Decay applies uncertainty decay to a base confidence.
+// Each factor reduces confidence proportionally.
+func Decay(base float64, factors int) float64 {
+	if factors <= 0 {
+		return base
+	}
+	// Each factor reduces confidence by 10%
+	decayRate := 0.9
+	return base * math.Pow(decayRate, float64(factors))
+}
+
+// AboveThreshold checks if confidence meets minimum requirement.
+func AboveThreshold(score, threshold float64) bool {
+	return score >= threshold
+}
+
+// WeightedAverage calculates weighted confidence.
+func WeightedAverage(scores []float64, weights []float64) float64 {
+	if len(scores) == 0 || len(scores) != len(weights) {
+		return 0
+	}
+
+	var sum, weightSum float64
+	for i, s := range scores {
+		sum += s * weights[i]
+		weightSum += weights[i]
+	}
+
+	if weightSum == 0 {
+		return 0
+	}
+	return sum / weightSum
+}
+
+// Clamp ensures confidence is in valid range [0, 1].
+func Clamp(score float64) float64 {
+	if score < 0 {
+		return 0
+	}
+	if score > 1 {
+		return 1
+	}
+	return score
+}
+
+// DefaultConfidence values
+const (
+	HighConfidence   = 0.95
+	MediumConfidence = 0.80
+	LowConfidence    = 0.60
+	MinConfidence    = 0.50
+)
+
+--------------------------------------------------------------------------------
+FILE: pkg\errors\severity.go
+--------------------------------------------------------------------------------
+
+// Package errors provides severity-aware error types.
+package errors
+
+import "fmt"
+
+// Severity indicates error impact level.
+type Severity int
+
+const (
+	SeverityInfo Severity = iota
+	SeverityWarning
+	SeverityError
+	SeverityFatal
+)
+
+func (s Severity) String() string {
+	switch s {
+	case SeverityInfo:
+		return "info"
+	case SeverityWarning:
+		return "warning"
+	case SeverityError:
+		return "error"
+	case SeverityFatal:
+		return "fatal"
+	default:
+		return "unknown"
+	}
+}
+
+// FiacError is a structured error with context.
+type FiacError struct {
+	Code        string   `json:"code"`
+	Message     string   `json:"message"`
+	Severity    Severity `json:"severity"`
+	ResourceID  string   `json:"resource_id,omitempty"`
+	Recoverable bool     `json:"recoverable"`
+}
+
+func (e *FiacError) Error() string {
+	if e.ResourceID != "" {
+		return fmt.Sprintf("[%s] %s: %s (resource: %s)", e.Severity, e.Code, e.Message, e.ResourceID)
+	}
+	return fmt.Sprintf("[%s] %s: %s", e.Severity, e.Code, e.Message)
+}
+
+// Error codes
+const (
+	ErrCodeParseFailed      = "PARSE_FAILED"
+	ErrCodeUnknownResource  = "UNKNOWN_RESOURCE"
+	ErrCodeUnsupportedType  = "UNSUPPORTED_TYPE"
+	ErrCodeMissingAttribute = "MISSING_ATTRIBUTE"
+	ErrCodePriceNotFound    = "PRICE_NOT_FOUND"
+	ErrCodeLowConfidence    = "LOW_CONFIDENCE"
+	ErrCodePolicyViolation  = "POLICY_VIOLATION"
+)
+
+// NewUnknownResourceError creates an error for unmapped resources.
+func NewUnknownResourceError(resourceType, resourceID string) *FiacError {
+	return &FiacError{
+		Code:        ErrCodeUnknownResource,
+		Message:     fmt.Sprintf("No semantic mapping for resource type: %s", resourceType),
+		Severity:    SeverityError,
+		ResourceID:  resourceID,
+		Recoverable: false,
+	}
+}
+
+// NewMissingAttributeError creates an error for missing required attributes.
+func NewMissingAttributeError(attribute, resourceID string) *FiacError {
+	return &FiacError{
+		Code:        ErrCodeMissingAttribute,
+		Message:     fmt.Sprintf("Missing required attribute: %s", attribute),
+		Severity:    SeverityError,
+		ResourceID:  resourceID,
+		Recoverable: false,
+	}
+}
+
+// NewPriceNotFoundError creates an error for unresolved pricing.
+func NewPriceNotFoundError(sku, resourceID string) *FiacError {
+	return &FiacError{
+		Code:        ErrCodePriceNotFound,
+		Message:     fmt.Sprintf("Price not found for SKU: %s", sku),
+		Severity:    SeverityError,
+		ResourceID:  resourceID,
+		Recoverable: false,
+	}
+}
+
+--------------------------------------------------------------------------------
+FILE: pkg\units\canonical.go
+--------------------------------------------------------------------------------
+
+// Package units provides canonical unit types and conversions.
+package units
+
+import "time"
+
+// Unit represents a measurable quantity.
+type Unit string
+
+const (
+	// Time units
+	UnitHours  Unit = "hours"
+	UnitDays   Unit = "days"
+	UnitMonths Unit = "months"
+
+	// Storage units
+	UnitGB      Unit = "GB"
+	UnitGBMonth Unit = "GB-month"
+	UnitTB      Unit = "TB"
+	UnitIOPS    Unit = "IOPS"
+
+	// Network units
+	UnitGBTransfer Unit = "GB-transfer"
+	UnitRequests   Unit = "requests"
+
+	// Compute units
+	UnitVCPU       Unit = "vCPU"
+	UnitVCPUHours  Unit = "vCPU-hours"
+	UnitGBMemory   Unit = "GB-memory"
+)
+
+// HoursPerMonth is the standard billing assumption.
+const HoursPerMonth = 730.0
+
+// ToMonthlyHours converts various time periods to monthly hours.
+func ToMonthlyHours(value float64, unit Unit) float64 {
+	switch unit {
+	case UnitHours:
+		return value
+	case UnitDays:
+		return value * 24
+	case UnitMonths:
+		return value * HoursPerMonth
+	default:
+		return value
+	}
+}
+
+// GBToTB converts gigabytes to terabytes.
+func GBToTB(gb float64) float64 {
+	return gb / 1024
+}
+
+// TBToGB converts terabytes to gigabytes.
+func TBToGB(tb float64) float64 {
+	return tb * 1024
+}
+
+// MonthlyToDaily calculates daily cost from monthly.
+func MonthlyToDaily(monthly float64) float64 {
+	return monthly / 30.0
+}
+
+// DailyToMonthly calculates monthly cost from daily.
+func DailyToMonthly(daily float64) float64 {
+	return daily * 30.0
+}
+
+// HourlyToMonthly calculates monthly cost from hourly.
+func HourlyToMonthly(hourly float64) float64 {
+	return hourly * HoursPerMonth
+}
+
+// NormalizeTimePeriod converts a duration to standard monthly period.
+func NormalizeTimePeriod(value float64, period time.Duration) float64 {
+	hours := period.Hours()
+	if hours == 0 {
+		return 0
+	}
+	monthlyFactor := HoursPerMonth / hours
+	return value * monthlyFactor
+}
+
+--------------------------------------------------------------------------------
+FILE: policies\budget.rego
+--------------------------------------------------------------------------------
+
+package fiac
+
+# Budget policy - deny if cost exceeds threshold
+
+deny[msg] {
+    input.total_cost_p90 > 10000
+    msg := sprintf("Monthly cost P90 ($%.2f) exceeds $10,000 budget", [input.total_cost_p90])
+}
+
+deny[msg] {
+    input.cost_growth_percent > 20
+    msg := sprintf("Cost growth %.1f%% exceeds 20%% limit", [input.cost_growth_percent])
+}
+
+warn[msg] {
+    input.total_cost_p90 > 5000
+    input.total_cost_p90 <= 10000
+    msg := sprintf("Monthly cost P90 ($%.2f) approaching budget limit", [input.total_cost_p90])
+}
+
+--------------------------------------------------------------------------------
+FILE: policies\carbon.rego
+--------------------------------------------------------------------------------
+
+package fiac
+
+# Carbon policy - enforce sustainability limits
+
+deny[msg] {
+    input.carbon_kg > 1000
+    msg := sprintf("Carbon footprint (%.1f kgCO2e) exceeds 1000 kg limit", [input.carbon_kg])
+}
+
+warn[msg] {
+    input.carbon_kg > 500
+    input.carbon_kg <= 1000
+    msg := sprintf("Carbon footprint (%.1f kgCO2e) approaching limit", [input.carbon_kg])
+}
+
+--------------------------------------------------------------------------------
+FILE: policies\confidence.rego
+--------------------------------------------------------------------------------
+
+package fiac
+
+# Confidence policy - warn on low confidence estimates
+
+warn[msg] {
+    input.confidence_score < 0.8
+    msg := sprintf("Low confidence score (%.0f%%) - estimates may be unreliable", [input.confidence_score * 100])
+}
+
+deny[msg] {
+    input.confidence_score < 0.5
+    msg := sprintf("Confidence score (%.0f%%) too low for approval", [input.confidence_score * 100])
+}
+
+deny[msg] {
+    input.is_incomplete == true
+    msg := "Incomplete estimate - some resources could not be mapped"
+}
+
+--------------------------------------------------------------------------------
+FILE: README.md
+--------------------------------------------------------------------------------
+
+# FIAC Platform - IaC Cost Intelligence
+
+A shift-left financial and carbon control plane for Terraform infrastructure.
+
+## Overview
+
+FIAC Platform intercepts Terraform plans **before deployment** to:
+- Predict realistic costs with uncertainty (P50/P90)
+- Calculate carbon footprint
+- Enforce governance policies
+- Block or warn in CI/CD pipelines
+- Explain every number and decision
+
+## Architecture
+
+```
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚   Terraform Plan JSON    â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+            â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚   IaC Ingestion Service  â”‚  Parse â†’ Infrastructure Graph
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+            â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Billing Semantic Engine â”‚  Resources â†’ Billing Components
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+            â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Predictive Usage Engine â”‚  Heuristic forecasts with confidence
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+            â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Pricing & Carbon Engine â”‚  SKU resolution + carbon intensity
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+            â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Cost Estimation Core    â”‚  Cost DAG + confidence aggregation
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+            â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Policy Engine (OPA)     â”‚  Budget, growth, carbon limits
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+            â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Developer Feedback      â”‚  CLI / PR comments / JSON for CI
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+```
+
+## Quick Start
+
+### Prerequisites
+- Go 1.23+
+- Docker & Docker Compose
+
+### Build
+
+```bash
+# Build all services
+docker-compose -f deployments/compose/docker-compose.yml build
+
+# Run all services
+docker-compose -f deployments/compose/docker-compose.yml up -d
+```
+
+### CLI Usage
+
+```bash
+# Estimate costs for a Terraform plan
+go run ./cmd/cli estimate --plan examples/tfplan.json --output json
+```
+
+## Project Structure
+
+```
+fiac-platform/
+â”œâ”€â”€ cmd/                    # Service entrypoints
+â”‚   â”œâ”€â”€ ingestion/          # IaC Ingestion Service
+â”‚   â”œâ”€â”€ semantic/           # Billing Semantic Engine
+â”‚   â”œâ”€â”€ usage/              # Predictive Usage Engine
+â”‚   â”œâ”€â”€ pricing/            # Pricing & Carbon Engine
+â”‚   â”œâ”€â”€ estimation/         # Cost Estimation Core
+â”‚   â””â”€â”€ cli/                # Developer CLI
+â”‚
+â”œâ”€â”€ internal/               # Private domain logic
+â”‚   â”œâ”€â”€ graph/              # Infrastructure graph
+â”‚   â”œâ”€â”€ semantics/          # Billing semantics
+â”‚   â”œâ”€â”€ usage/              # Usage prediction
+â”‚   â”œâ”€â”€ pricing/            # Price resolution
+â”‚   â”œâ”€â”€ estimation/         # Cost calculation
+â”‚   â”œâ”€â”€ policy/             # OPA integration
+â”‚   â””â”€â”€ carbon/             # Carbon modeling
+â”‚
+â”œâ”€â”€ pkg/                    # Shared contracts
+â”‚   â”œâ”€â”€ api/                # Request/response structs
+â”‚   â”œâ”€â”€ units/              # Canonical units
+â”‚   â”œâ”€â”€ errors/             # Severity-aware errors
+â”‚   â””â”€â”€ confidence/         # Confidence math
+â”‚
+â”œâ”€â”€ policies/               # OPA Rego policies
+â”œâ”€â”€ deployments/            # Docker & Kubernetes
+â””â”€â”€ examples/               # Sample Terraform plans
+```
+
+## Design Principles
+
+1. **Fail Closed** - Unknown resources generate errors, not silent skips
+2. **Explainable** - Every number has a traceable origin
+3. **Deterministic** - Same input always produces same output
+4. **Container-First** - One binary per service, no runtime compilation
+5. **CI/CD Safe** - Proper exit codes and machine-readable output
+
+## License
+
+MIT
 
